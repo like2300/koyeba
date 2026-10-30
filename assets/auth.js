@@ -56,6 +56,7 @@ const Auth = {
   name() { const u = this.user(); return u ? `${u.first} ${u.last}`.trim() : ''; }
 };
 
-if (!Auth.user() && !/connexion\.html$/i.test(location.pathname)) {
+// connexion.html et verifier.html (vérification publique des certificats) restent ouvertes sans compte
+if (!Auth.user() && !/(connexion|verifier)\.html$/i.test(location.pathname)) {
   location.replace('connexion.html?next=' + encodeURIComponent((location.pathname.split('/').pop() || 'index.html') + location.search + location.hash));
 }

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vérifier un certificat – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=45">
+<script src="assets/auth.js?v=2"></script>
+<style>
+  .vf { max-width: 980px; margin: 0 auto; padding: 28px 20px 60px; }
+  .vf-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 36px; }
+  .vf-top .auth-logo b { color: var(--green); }
+  .vf h1 { font-size: 34px; margin-bottom: 6px; }
+  .vf-sub { color: var(--muted); margin-bottom: 24px; }
+  .vf-form { display: flex; gap: 10px; margin-bottom: 28px; }
+  .vf-form .input { flex: 1; font-family: inherit; letter-spacing: .04em; }
+  .vf-result { border-radius: 20px; background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+  .vf-status { display: flex; align-items: center; gap: 14px; padding: 20px 24px; font-weight: 600; font-size: 18px; }
+  .vf-status svg { width: 34px; height: 34px; flex-shrink: 0; }
+  .vf-status small { display: block; font-weight: 400; font-size: 13px; opacity: .85; }
+  .vf-ok .vf-status { background: #e5f6ec; color: #136b37; }
+  .vf-bad .vf-status { background: #fdecea; color: #b42318; }
+  body.dark .vf-ok .vf-status { background: #1f3a2b; color: #6ee7a0; }
+  body.dark .vf-bad .vf-status { background: #3a2020; color: #f4b4ad; }
+  .vf-body { display: grid; grid-template-columns: 1fr 1.3fr; gap: 24px; padding: 24px; align-items: start; }
+  .vf-body .kv b { text-align: right; }
+  .vf-paper { container-type: inline-size; }
+  .vf-note { font-size: 12px; color: var(--muted); margin-top: 22px; text-align: center; }
+  @media (max-width: 760px) { .vf-body { grid-template-columns: 1fr; } .vf-form { flex-direction: column; } }
+</style>
+</head>
+<body>
+<script>try { if (localStorage.getItem('apprendo-theme') === 'dark') document.body.classList.add('dark'); } catch {}</script>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-cap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></symbol>
+</svg>
+
+<main class="vf">
+  <div class="vf-top">
+    <a class="auth-logo" href="index.html"><span class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg></span><span>Koy<b>eba</b></span></a>
+    <a class="btn btn-ghost btn-sm" href="index.html">Découvrir Koyeba</a>
+  </div>
+
+  <h1>Vérifier un certificat</h1>
+  <p class="vf-sub">Scannez le QR code d'un certificat Koyeba, ou entrez son numéro.</p>
+
+  <form class="vf-form" id="form">
+    <input class="input" id="code" placeholder="Numéro du certificat, ex. KYB-2026-7QX4M" autocomplete="off" aria-label="Numéro du certificat">
+    <button class="btn btn-primary">Vérifier</button>
+  </form>
+
+  <section id="result" aria-live="polite"></section>
+  <p class="vf-note">Démonstration : la vérification est simulée dans le navigateur. Une vraie vérification interrogera le registre des certificats sur le serveur de Koyeba.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="assets/data.js?v=44"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const icon = name => `<svg class="i"><use href="#i-${name}"/></svg>`;
+  const esc = v => String(v).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+  const OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>';
+  const BAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>';
+
+  function showOk(d) {
+    const c = courseById(d.k), t = teacherById(c.teacher);
+    $('result').innerHTML = `<div class="vf-result vf-ok">
+      <div class="vf-status">${OK}<span>Certificat authentique<small>Ce certificat a bien été délivré par Koyeba.</small></span></div>
+      <div class="vf-body">
+        <div>
+          <div class="kv"><span>Titulaire</span><b>${esc(d.n)}</b></div>
+          <div class="kv"><span>Cours</span><b>${esc(c.title)}</b></div>
+          <div class="kv"><span>Formateur</span><b>${esc(t.name)}</b></div>
+          <div class="kv"><span>Durée</span><b>${c.hours} heures · ${LEVELS[c.level]}</b></div>
+          <div class="kv"><span>Date de réussite</span><b>${esc(d.d)}</b></div>
+          <div class="kv" style="border:none"><span>Numéro</span><b>${esc(d.c)}</b></div>
+        </div>
+        <div class="vf-paper">${certHTML(c, { done: d.d }, { code: d.c, date: d.d }, false, esc(d.n))}</div>
+      </div>
+    </div>`;
+  }
+  function showBad(code, why) {
+    $('result').innerHTML = `<div class="vf-result vf-bad">
+      <div class="vf-status">${BAD}<span>Certificat non reconnu<small>${why}</small></span></div>
+      ${code ? `<div class="vf-body" style="display:block"><div class="kv" style="border:none"><span>Numéro saisi</span><b>${esc(code)}</b></div></div>` : ''}
+    </div>`;
+  }
+
+  // 1. Arrivée par le QR code : les données et leur empreinte sont dans l'adresse
+  const p = new URLSearchParams(location.search);
+  const fromQR = { c: p.get('c'), n: p.get('n'), k: p.get('k'), d: p.get('d'), s: p.get('s') };
+  if (fromQR.c) {
+    $('code').value = fromQR.c;
+    const valid = fromQR.n && fromQR.d && courseById(fromQR.k) && certFingerprint(fromQR.c, fromQR.n, fromQR.k, fromQR.d) === fromQR.s;
+    valid ? showOk(fromQR) : showBad(fromQR.c, 'Les informations de ce certificat ont été modifiées ou sont incomplètes.');
+  }
+
+  // 2. Saisie du numéro : recherche parmi les certificats récupérés sur cet appareil (démonstration)
+  $('form').onsubmit = e => {
+    e.preventDefault();
+    const code = $('code').value.trim().toUpperCase();
+    if (!/^KYB-\d{4}-[A-Z0-9]{5}$/.test(code)) return showBad(code, 'Le numéro doit avoir la forme KYB-2026-XXXXX.');
+    const found = Object.entries(Certs.all()).find(([, v]) => v.code === code);
+    const done = found && ENROLLED.find(x => x.id === found[0]);
+    if (found && done && ME_NAME) showOk({ c: code, n: ME_NAME, k: found[0], d: done.done });
+    else showBad(code, 'Aucun certificat ne porte ce numéro. Pour un certificat papier, scannez plutôt son QR code.');
+    history.replaceState(null, '', 'verifier.html');
+  };
+</script>
+</body>
+</html>

@@ -403,6 +403,24 @@ const Sub = {
 };
 
 /* Certificats débloqués : { idCours: { date, code, how } } + compteur mensuel des certificats inclus */
+/* Vérification des certificats (simulation) : le QR code ouvre verifier.html avec les données
+   du certificat et une empreinte calculée dessus ; une donnée modifiée ne correspond plus. */
+const certFingerprint = (code, name, course, date) => {
+  let h = 0x811c9dc5;
+  for (const ch of `koyeba|${code}|${name}|${course}|${date}`) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(36).toUpperCase().padStart(7, '0');
+};
+const certVerifyURL = (courseId, done, info, name = ME_NAME) => {
+  const u = new URL('verifier.html', location.href);
+  u.search = new URLSearchParams({ c: info.code, n: name, k: courseId, d: done, s: certFingerprint(info.code, name, courseId, done) });
+  return u.href;
+};
+const certQR = url => {
+  if (typeof qrcode === 'undefined') return '';
+  const q = qrcode(0, 'M'); q.addData(url); q.make();
+  return q.createSvgTag({ cellSize: 1, margin: 0, scalable: true });
+};
+
 /* Le certificat lui-même (aperçu à l'écran et version imprimable) */
 /* Contour à arabesques du certificat (encre unique, proportions A4 paysage) */
 const CERT_FRAME = `<svg class="cp-frame" viewBox="0 0 297 210" preserveAspectRatio="none" aria-hidden="true">
@@ -442,7 +460,7 @@ const CERT_FRAME = `<svg class="cp-frame" viewBox="0 0 297 210" preserveAspectRa
   <path d="M148.5 15.6l1.6 2.1-1.6 2.1-1.6-2.1zM148.5 194.4l1.6-2.1-1.6-2.1-1.6 2.1z" fill="currentColor"/>
 </svg>`;
 
-function certHTML(c, e, info, forPrint = false) {
+function certHTML(c, e, info, forPrint = false, name = ME_NAME) {
   const t = teacherById(c.teacher);
   const ministry = CERT_PARTNER.authorized ? `<p class="cp-ministry">${CERT_PARTNER.name}</p>` : '';
   return `<div class="cpaper">${CERT_FRAME}<div class="cp-in">
@@ -455,20 +473,13 @@ function certHTML(c, e, info, forPrint = false) {
     <p class="cp-school">Koyeba · Plateforme d'enseignement en ligne</p>
     <p class="cp-kicker">Certificat de réussite</p>
     <p class="cp-small">Il est certifié que</p>
-    <p class="cp-name">${ME_NAME}</p>
+    <p class="cp-name">${name}</p>
     <p class="cp-small">a suivi avec succès l'intégralité de l'enseignement</p>
     <p class="cp-course">${c.title}</p>
     <p class="cp-meta">${c.hours} heures · Niveau ${LEVELS[c.level].toLowerCase()} · ${catById(c.cat).name}</p>
     <div class="cp-foot">
       <div><span class="cp-sign">${t.name}</span><small>Le formateur</small></div>
-      <svg class="cp-seal" viewBox="0 0 100 100" aria-hidden="true">
-        <defs><path id="sealPath" d="M50 50 m-37 0 a37 37 0 1 1 74 0 a37 37 0 1 1 -74 0"/></defs>
-        <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" stroke-width="1.2"/>
-        <circle cx="50" cy="50" r="28" fill="none" stroke="currentColor" stroke-width=".6"/>
-        <text font-size="8.2" letter-spacing="2.6" fill="currentColor"><textPath href="#sealPath">KOYEBA · CERTIFICAT AUTHENTIQUE ·</textPath></text>
-        <text x="50" y="47" text-anchor="middle" font-size="14" font-style="italic" fill="currentColor">K</text>
-        <text x="50" y="61" text-anchor="middle" font-size="6" letter-spacing="1" fill="currentColor">${(info ? new Date(info.date) : new Date()).getFullYear()}</text>
-      </svg>
+      ${info ? `<span class="cp-qr">${certQR(certVerifyURL(c.id, e.done, info, name))}<small>Scannez pour vérifier</small></span>` : '<span class="cp-qr cp-qr-empty"></span>'}
       <div><span>Délivré le ${e.done}</span><small>${info ? 'N° ' + info.code : 'Numéro attribué à la récupération'}</small></div>
     </div>
   </div></div>`;

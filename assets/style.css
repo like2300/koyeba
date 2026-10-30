@@ -792,7 +792,10 @@ body.dark .cert-status { color: var(--green-light); }
 .cp-foot > div { border-top: .5px solid var(--ink); padding-top: .45em; display: flex; flex-direction: column; }
 .cp-foot small { color: var(--soft); font-size: .82em; font-style: italic; }
 .cp-sign { font-style: italic; font-weight: 600; font-size: 1.15em; }
-.cp-seal { width: 5.6em; height: 5.6em; color: var(--ink); font-family: 'Cormorant Garamond', serif; opacity: .9; }
+.cp-qr { display: flex; flex-direction: column; align-items: center; gap: .25em; }
+.cp-qr svg { width: 4.5em; height: 4.5em; display: block; }
+.cp-qr small { font-size: .55em; letter-spacing: .12em; text-transform: uppercase; font-style: normal; color: var(--soft); white-space: nowrap; }
+.cp-qr-empty { width: 4.5em; height: 4.5em; border: 1px dashed var(--rule); }
 @media (max-width: 480px) { .cert-grid2 { grid-template-columns: 1fr; } }
 
 /* Page abonnements (façon Claude) */
