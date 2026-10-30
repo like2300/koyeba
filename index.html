@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Koyeba – Plateforme d'apprentissage en ligne</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="decouvrir">
+<div class="app with-right">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar" data-compact></div>
+
+    <div class="section-title">Cours à la une</div>
+    <div class="hero-wrap">
+      <div class="hero">
+        <img class="hero-bg" id="heroImg" alt="">
+        <div class="hero-content">
+          <span class="tag" id="heroTag"></span>
+          <h1 id="heroTitle"></h1>
+          <h2 id="heroAuthor"></h2>
+          <div class="hero-meta">
+            <span><svg class="i"><use href="#i-users"/></svg><b id="heroStudents"></b>&nbsp;apprenants</span>
+            <span><svg class="i"><use href="#i-book"/></svg><b id="heroLessons"></b>&nbsp;leçons</span>
+            <span><svg class="i"><use href="#i-clock"/></svg><b id="heroHours"></b>&nbsp;h de vidéo</span>
+          </div>
+          <div class="hero-actions">
+            <a class="btn btn-primary" id="startBtn"><svg class="i"><use href="#i-play"/></svg>Voir le cours</a>
+            <button class="btn btn-outline" id="favBtn"><svg class="i"><use href="#i-heart"/></svg><span>Ajouter aux favoris</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dots" id="dots"></div>
+
+    <div class="section-title">Continuer l'apprentissage <a href="mes-cours.html">Tout voir →</a></div>
+    <div class="courses" id="courses"></div>
+
+    <div class="section-title">Meilleurs étudiants <a href="etudiant.html">Voir le classement →</a></div>
+    <div class="stories" id="stories"></div>
+
+    <div class="section-title">Les plus populaires <a href="cours.html?tri=populaires">Tout voir →</a></div>
+    <div class="popular" id="popular"></div>
+  </main>
+
+  <aside class="right">
+    <div class="user">
+      <a href="abonnements.html" class="upgrade">PASSER PREMIUM</a>
+      <button class="bell" aria-label="Notifications" onclick="toast('Aucune nouvelle notification')"><svg class="i"><use href="#i-bell"/></svg></button>
+      <a href="compte.html" class="user-wrap"><img class="avatar" id="meAvatar" alt=""></a>
+      <div class="user-name" id="meName"><small>En ligne</small></div>
+    </div>
+
+
+    <div class="section-title">Mon profil étudiant <a href="compte.html">Modifier</a></div>
+    <div class="student" id="student"></div>
+
+    <div class="player" id="direct">
+      <div class="player-top">
+        <div class="player-head"><span>Leçon en cours</span><span class="live">EN DIRECT</span></div>
+        <div class="video">
+          <img src="https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=600&q=80" alt="Code Python">
+          <div class="video-badge"><img src="https://images.unsplash.com/photo-1531384441138-2736e62e0919?w=200&h=200&fit=crop&crop=faces&q=80" alt="">Jean Kouassi</div>
+        </div>
+        <h3>Les boucles en Python</h3>
+        <div class="sub">Python pour l'analyse de données · Leçon 7</div>
+        <div class="timeline">
+          <span id="cur">04:12</span>
+          <div class="bar" id="bar"><div class="bar-fill" id="fill"></div></div>
+          <span>14:00</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button aria-label="Répéter"><svg class="i"><use href="#i-repeat"/></svg></button>
+        <button aria-label="Reculer de 15 s" id="prevBtn"><svg class="i"><use href="#i-back"/></svg></button>
+        <button class="main-play" id="playBtn" aria-label="Lecture"><svg class="i"><use id="playIcon" href="#i-play"/></svg></button>
+        <button aria-label="Avancer de 15 s" id="nextBtn"><svg class="i"><use href="#i-fwd"/></svg></button>
+        <a href="lecture.html?id=python" aria-label="Ouvrir la leçon" style="color:#fff;display:grid"><svg class="i"><use href="#i-notes"/></svg></a>
+      </div>
+      <div class="chapters">⌃ CHAPITRES</div>
+    </div>
+  </aside>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  // ---- Carrousel ----
+  const featured = ['js', 'python', 'uiux', 'entrepreneur', 'anglais'].map(courseById);
+  let current = 0;
+  featured.forEach(f => { new Image().src = IMG(f.img, 1200); });
+  function showFeatured(i) {
+    current = (i + featured.length) % featured.length;
+    const f = featured[current];
+    $('heroImg').src = IMG(f.img, 1200);
+    $('heroTag').textContent = catById(f.cat).name;
+    $('heroTitle').textContent = f.title;
+    $('heroAuthor').textContent = 'avec ' + teacherById(f.teacher).name;
+    $('heroStudents').textContent = fmtNum(f.students);
+    $('heroLessons').textContent = f.lessons;
+    $('heroHours').textContent = f.hours;
+    $('startBtn').href = 'cours-detail.html?id=' + f.id;
+    $('favBtn').dataset.fav = f.id;
+    syncFav();
+    document.querySelectorAll('.dot').forEach((d, k) => d.classList.toggle('active', k === current));
+  }
+  function syncFav() {
+    const on = Favs.has(featured[current].id);
+    $('favBtn').classList.toggle('on', on);
+    $('favBtn').querySelector('span').textContent = on ? 'Dans vos favoris' : 'Ajouter aux favoris';
+  }
+  document.addEventListener('favchange', syncFav);
+  $('dots').innerHTML = featured.map((_, i) => `<span class="dot" data-i="${i}"></span>`).join('');
+  $('dots').addEventListener('click', e => { if (e.target.dataset.i) { showFeatured(+e.target.dataset.i); resetAuto(); } });
+  let auto;
+  const resetAuto = () => { clearInterval(auto); auto = setInterval(() => showFeatured(current + 1), 6000); };
+  showFeatured(0);
+  resetAuto();
+
+  // ---- Continuer l'apprentissage ----
+  $('courses').innerHTML = ENROLLED.filter(e => e.progress < 100)
+    .sort((a, b) => b.last.localeCompare(a.last)).slice(0, 5)
+    .map(e => {
+      const c = courseById(e.id);
+      return `<a class="course" href="lecture.html?id=${c.id}">
+        <div class="thumb"><img src="${IMG(c.img)}" alt="" loading="lazy"><span class="lvl">${LEVELS[c.level].toUpperCase()}</span></div>
+        <h4>${c.title}</h4>
+        <div class="progress"><span style="width:${e.progress}%"></span></div>
+        <p>${teacherById(c.teacher).name} · ${e.progress} %</p>
+      </a>`;
+    }).join('');
+
+  // ---- Meilleurs étudiants (façon stories) ----
+  $('stories').innerHTML = [...STUDENTS].sort((a, b) => b.xp - a.xp).map((s, i) => `
+    <a class="story ${s.active ? '' : 'seen'}" href="etudiant.html?id=${s.id}" title="${s.name} · ${fmtNum(s.xp)} XP">
+      <span class="ring"><img src="${FACE(s.photo)}" alt="${s.name}" loading="lazy"><b class="rank">${i + 1}</b></span>
+      <span class="sname">${s.name.split(' ')[0]}</span>
+      <small>${fmtNum(s.xp)} XP</small>
+    </a>`).join('');
+
+  // ---- Les plus populaires ----
+  $('popular').innerHTML = [...COURSES].sort((a, b) => b.students - a.students).slice(0, 4).map(c => `
+    <a class="pop" href="cours-detail.html?id=${c.id}">
+      <img src="${IMG(c.img, 200)}" alt="" loading="lazy">
+      <div class="pop-info">
+        <h4>${c.title}</h4>
+        <p>${teacherById(c.teacher).name} · ${starsHTML(c.rating)} ${c.rating.toFixed(1).replace('.', ',')}</p>
+      </div>
+      <span class="play-sm"><svg class="i"><use href="#i-play"/></svg></span>
+    </a>`).join('');
+
+  // ---- Profil étudiant ----
+  $('meAvatar').src = FACE(ME_PHOTO); $('meName').prepend(ME.first);
+  const STUDENT = { name: ME_NAME, photo: ME_PHOTO, level: 7, xp: 2450, nextXp: 3000, streak: 12, goal: 5,
+    week: [45, 30, 60, 65, 0, 0, 0], today: 3 }; // minutes étudiées du lundi au dimanche
+  const finished = ENROLLED.filter(e => e.progress === 100).length;
+  const weekMin = STUDENT.week.reduce((s, m) => s + m, 0);
+  const maxMin = Math.max(...STUDENT.week);
+  const fmtH = m => `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+  $('student').innerHTML = `
+    <div class="st-head">
+      <a href="compte.html" class="user-wrap"><img class="avatar" src="${FACE(STUDENT.photo)}" alt="${STUDENT.name}"></a>
+      <div>
+        <h4>${STUDENT.name}</h4>
+        <span class="st-level">${icon('award')}Niveau ${STUDENT.level}</span>
+      </div>
+    </div>
+    <div class="st-xp">
+      <div><span>Vers le niveau ${STUDENT.level + 1}</span><b>${fmtNum(STUDENT.xp)} / ${fmtNum(STUDENT.nextXp)} XP</b></div>
+      <div class="progress"><span style="width:${STUDENT.xp / STUDENT.nextXp * 100}%"></span></div>
+    </div>
+    <div class="st-stats">
+      <div><b>${STUDENT.streak}</b><small>jours de suite</small></div>
+      <a href="mes-cours.html"><b>${ENROLLED.length}</b><small>cours suivis</small></a>
+      <a href="certificats.html"><b>${finished}</b><small>certificats</small></a>
+    </div>
+    <div class="st-goal">
+      <div><span>Objectif de la semaine</span><b>${fmtH(weekMin)} / ${STUDENT.goal} h</b></div>
+      <div class="st-chart">
+        ${STUDENT.week.map((m, i) => `<div class="${i === STUDENT.today ? 'today' : ''}" title="${m} min">
+          <span style="height:${m ? Math.max(8, m / maxMin * 100) : 4}%"></span><small>${'LMMJVSD'[i]}</small></div>`).join('')}
+      </div>
+    </div>`;
+
+  // ---- Lecteur de leçon ----
+  const DURATION = 14 * 60;
+  let pos = 252, playing = false, tick;
+  const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  const updateBar = () => { $('fill').style.width = (pos / DURATION * 100) + '%'; $('cur').textContent = fmt(pos); };
+  $('playBtn').onclick = () => {
+    playing = !playing;
+    $('playIcon').setAttribute('href', playing ? '#i-pause' : '#i-play');
+    clearInterval(tick);
+    if (playing) tick = setInterval(() => { pos = Math.min(pos + 1, DURATION); updateBar(); }, 1000);
+  };
+  $('prevBtn').onclick = () => { pos = Math.max(pos - 15, 0); updateBar(); };
+  $('nextBtn').onclick = () => { pos = Math.min(pos + 15, DURATION); updateBar(); };
+  $('bar').onclick = e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    pos = Math.round((e.clientX - r.left) / r.width * DURATION);
+    updateBar();
+  };
+  updateBar();
+</script>
+</body>
+</html>

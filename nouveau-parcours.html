@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nouveau parcours – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="nouveau">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › <a href="parcours.html">Parcours</a> › Nouveau</div>
+      <h1>Créer un parcours personnalisé</h1>
+      <p>Regroupez plusieurs cours dans l'ordre qui vous convient pour atteindre votre objectif.</p>
+    </div>
+
+    <form class="form-grid" id="form">
+      <div>
+        <div class="card">
+          <h3>1. Informations</h3>
+          <div class="field">
+            <label for="title">Nom du parcours</label>
+            <input class="input" id="title" required placeholder="Ex. : Devenir développeur front-end">
+          </div>
+          <div class="field">
+            <label for="desc">Objectif</label>
+            <textarea class="input" id="desc" placeholder="Décrivez ce que vous voulez atteindre avec ce parcours…"></textarea>
+          </div>
+          <div class="two-col">
+            <div class="field">
+              <label for="level">Niveau visé</label>
+              <select class="input" id="level">
+                <option value="debutant">Débutant</option>
+                <option value="intermediaire">Intermédiaire</option>
+                <option value="avance">Avancé</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="pace">Rythme souhaité</label>
+              <select class="input" id="pace">
+                <option value="3">3 h par semaine</option>
+                <option value="5" selected>5 h par semaine</option>
+                <option value="10">10 h par semaine</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>2. Choisissez les cours</h3>
+          <div class="field">
+            <input class="input" id="filter" placeholder="Filtrer les cours…">
+            <span class="hint">L'ordre du parcours suit l'ordre dans lequel vous cochez les cours.</span>
+          </div>
+          <div class="pick-list" id="picks"></div>
+        </div>
+      </div>
+
+      <aside class="card" style="position:sticky;top:84px">
+        <h3>Récapitulatif</h3>
+        <ol class="summary-list" id="summary"></ol>
+        <div class="kv"><span>Cours</span><b id="kCourses">0</b></div>
+        <div class="kv"><span>Durée totale</span><b id="kHours">0 h</b></div>
+        <div class="kv"><span>Leçons</span><b id="kLessons">0</b></div>
+        <div class="kv" style="border:none;margin-bottom:16px"><span>Fin estimée</span><b id="kWeeks">–</b></div>
+        <button class="btn btn-primary btn-block" type="submit"><svg class="i"><use href="#i-check"/></svg>Enregistrer le parcours</button>
+      </aside>
+    </form>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const picked = [];
+
+  function renderPicks() {
+    const q = $('filter').value.trim().toLowerCase();
+    $('picks').innerHTML = COURSES.filter(c => (c.title + ' ' + catById(c.cat).name).toLowerCase().includes(q)).map(c => `
+      <label class="pick">
+        <img src="${IMG(c.img, 160)}" alt="">
+        <span class="t">${c.title}<small>${catById(c.cat).name} · ${c.hours} h · ${LEVELS[c.level]}</small></span>
+        <input type="checkbox" value="${c.id}" ${picked.includes(c.id) ? 'checked' : ''}>
+      </label>`).join('');
+  }
+
+  function renderSummary() {
+    const list = picked.map(courseById);
+    const hours = list.reduce((s, c) => s + c.hours, 0);
+    $('summary').innerHTML = list.map(c => `<li>${c.title.split(':')[0]}</li>`).join('') || '<p style="font-size:13px;color:var(--muted)">Aucun cours sélectionné.</p>';
+    $('kCourses').textContent = list.length;
+    $('kHours').textContent = hours + ' h';
+    $('kLessons').textContent = list.reduce((s, c) => s + c.lessons, 0);
+    const weeks = Math.ceil(hours / +$('pace').value);
+    $('kWeeks').textContent = list.length ? `${weeks} semaine${weeks > 1 ? 's' : ''}` : '–';
+  }
+
+  $('picks').addEventListener('change', e => {
+    const id = e.target.value;
+    e.target.checked ? picked.push(id) : picked.splice(picked.indexOf(id), 1);
+    renderSummary();
+  });
+  $('filter').oninput = renderPicks;
+  $('pace').onchange = renderSummary;
+
+  $('form').onsubmit = e => {
+    e.preventDefault();
+    if (picked.length < 2) return toast('Choisissez au moins 2 cours');
+    let paths = [];
+    try { paths = JSON.parse(localStorage.getItem('apprendo-paths')) || []; } catch {}
+    paths.unshift({ id: 'p' + Date.now(), title: $('title').value.trim(), desc: $('desc').value.trim(), level: $('level').value, courses: [...picked] });
+    try { localStorage.setItem('apprendo-paths', JSON.stringify(paths)); } catch {}
+    toast('Parcours enregistré');
+    setTimeout(() => location.href = 'parcours.html', 900);
+  };
+
+  renderPicks();
+  renderSummary();
+</script>
+</body>
+</html>

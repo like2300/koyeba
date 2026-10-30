@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mes cours – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="mescours">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › Mes cours</div>
+      <h1>Mon apprentissage</h1>
+      <p>Retrouvez vos cours, suivez votre progression et reprenez là où vous vous êtes arrêté.</p>
+    </div>
+
+    <div class="stat-row" id="stats"></div>
+
+    <div class="tabs" id="tabs"></div>
+    <div class="grid-cards" id="grid"></div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const items = ENROLLED.map(e => ({ ...e, c: courseById(e.id) }));
+  const done = items.filter(i => i.progress === 100);
+  const hours = Math.round(items.reduce((s, i) => s + i.c.hours * i.progress / 100, 0));
+
+  $('stats').innerHTML = [
+    ['book', items.length, 'cours suivis'],
+    ['play', items.length - done.length, 'en cours'],
+    ['award', done.length, 'terminés'],
+    ['clock', hours + ' h', 'd\'apprentissage']
+  ].map(([ic, v, l]) => `<div class="stat"><div class="ico">${icon(ic)}</div><div><b>${v}</b><small>${l}</small></div></div>`).join('');
+
+  const TABS = {
+    tous:     { label: 'Tous',      list: () => items },
+    encours:  { label: 'En cours',  list: () => items.filter(i => i.progress < 100) },
+    termines: { label: 'Terminés',  list: () => done },
+    recents:  { label: 'Récents',   list: () => [...items].sort((a, b) => b.last.localeCompare(a.last)).slice(0, 4) }
+  };
+  let tab = params.get('onglet') in TABS ? params.get('onglet') : 'tous';
+
+  const daysAgo = d => {
+    const n = Math.round((new Date('2026-10-29') - new Date(d)) / 864e5);
+    return n === 0 ? "aujourd'hui" : n === 1 ? 'hier' : `il y a ${n} jours`;
+  };
+
+  function render() {
+    $('tabs').innerHTML = Object.entries(TABS).map(([k, t]) =>
+      `<button class="tab ${k === tab ? 'active' : ''}" data-tab="${k}">${t.label}<span class="count">${t.list().length}</span></button>`).join('');
+    $('grid').innerHTML = TABS[tab].list().map(i => courseCard(i.c, `
+      <div class="progress"><span style="width:${i.progress}%"></span></div>
+      <div class="foot">
+        ${i.progress === 100 ? `<span class="done">${icon('check')}Terminé le ${i.done}</span><span class="cert-link" role="link" tabindex="0" data-go="certificats.html">Certificat</span>`
+          : `<span>${i.progress} % terminé</span><span>Vu ${daysAgo(i.last)}</span>`}
+      </div>`).replace('class="ccard"', 'class="ccard mycard"').replace('cours-detail.html?id=', 'lecture.html?id=')).join('');
+  }
+  $('tabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-tab]');
+    if (!b) return;
+    tab = b.dataset.tab;
+    history.replaceState(null, '', tab === 'tous' ? 'mes-cours.html' : `mes-cours.html?onglet=${tab}`);
+    render();
+  });
+  // Lien « Certificat » à l'intérieur d'une carte (qui est déjà un lien)
+  const goCert = e => {
+    const c = e.target.closest('[data-go]');
+    if (!c) return;
+    e.preventDefault();
+    e.stopPropagation();
+    location.href = c.dataset.go;
+  };
+  $('grid').addEventListener('click', goCert);
+  $('grid').addEventListener('keydown', e => { if (e.key === 'Enter') goCert(e); });
+  render();
+</script>
+</body>
+</html>

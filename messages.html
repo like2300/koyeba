@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Messages – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="messages">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main chat-page">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="chat-app" id="chatApp">
+      <!-- Liste des conversations -->
+      <section class="conv-side">
+        <div class="conv-top">
+          <div>
+            <h2>Messages</h2>
+            <span style="display:flex;gap:6px">
+              <button class="icon-btn" id="helpBtn" aria-label="Aide et assistance" title="Aide et assistance"><svg class="i"><use href="#i-cap"/></svg></button>
+              <button class="icon-btn" id="newBtn" aria-label="Nouveau message" title="Nouveau message"><svg class="i"><use href="#i-edit"/></svg></button>
+            </span>
+          </div>
+          <label class="conv-search"><svg class="i"><use href="#i-search"/></svg><input id="convSearch" placeholder="Rechercher une conversation"></label>
+        </div>
+        <div class="conv-list" id="convList"></div>
+      </section>
+
+      <!-- Conversation ouverte -->
+      <section class="chat-main" id="chatMain">
+        <div class="chat-empty">
+          <div>
+            <div class="empty"><div class="ico"><svg class="i"><use href="#i-chat"/></svg></div></div>
+            <h3 style="color:var(--text);margin-top:-40px">Vos messages</h3>
+            <p style="font-size:13px">Choisissez une conversation ou écrivez à un étudiant.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Infos du contact (grands écrans) -->
+      <aside class="chat-info" id="chatInfo" aria-label="Informations sur le contact"></aside>
+    </div>
+  </main>
+</div>
+
+<!-- Nouveau message -->
+<div class="modal" id="modal">
+  <div class="box">
+    <header><h3 style="font-size:16px">Nouveau message</h3><button id="closeModal" aria-label="Fermer"><svg class="i"><use href="#i-x"/></svg></button></header>
+    <div style="padding:12px 16px 0"><label class="conv-search"><svg class="i"><use href="#i-search"/></svg><input id="contactSearch" placeholder="Rechercher un étudiant ou un formateur"></label></div>
+    <div class="list" id="contactList"></div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" hidden>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  let data = Chat.load();
+  Chat.save(data);
+  let current = null;
+
+  const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const hhmm = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const dayKey = t => new Date(t).toDateString();
+  function dayLabel(t) {
+    const d = new Date(t), now = new Date();
+    const yest = new Date(now); yest.setDate(now.getDate() - 1);
+    if (d.toDateString() === now.toDateString()) return "Aujourd'hui";
+    if (d.toDateString() === yest.toDateString()) return 'Hier';
+    return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+  const shortTime = t => {
+    const l = dayLabel(t);
+    return l === "Aujourd'hui" ? hhmm(t) : l === 'Hier' ? 'Hier' : new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+  };
+  const lastOf = id => data[id].msgs[data[id].msgs.length - 1];
+  const preview = m => !m ? 'Nouvelle conversation' : (m.from === 'me' ? 'Vous : ' : '') + (m.file ? 'Fichier : ' + m.file.name : m.text);
+
+  function updateBadges() {
+    const n = Chat.unread(data);
+    const b = $('msgBadge');
+    if (b) { b.textContent = n; b.hidden = !n; }
+    document.querySelector('.topbar a.bell')?.classList.toggle('no-dot', !n);
+  }
+
+  // ---- Liste des conversations ----
+  function renderList() {
+    const q = $('convSearch').value.trim().toLowerCase();
+    const ids = Object.keys(data)
+      .filter(id => contactById(id) && contactById(id).name.toLowerCase().includes(q))
+      .sort((a, b) => (lastOf(b)?.t || Date.now()) - (lastOf(a)?.t || Date.now()));
+    $('convList').innerHTML = ids.map(id => {
+      const c = contactById(id), last = lastOf(id), unread = data[id].unread;
+      return `<button class="conv ${id === current ? 'active' : ''} ${unread ? 'unread' : ''}" data-id="${id}">
+        <span class="av ${c.online ? 'on' : ''}"><img src="${FACE(c.photo)}" alt=""></span>
+        <span class="txt">
+          <span class="row1"><b>${c.name}</b><time>${last ? shortTime(last.t) : ''}</time></span>
+          <span class="row2"><span class="last">${esc(preview(last))}</span>${unread ? `<span class="unr">${unread}</span>` : ''}</span>
+        </span>
+      </button>`;
+    }).join('') || '<p style="padding:20px;font-size:13px;color:var(--muted)">Aucune conversation.</p>';
+  }
+
+  // ---- Conversation ----
+  function openConv(id) {
+    if (!data[id]) data[id] = { unread: 0, msgs: [] };
+    current = id;
+    data[id].unread = 0;
+    Chat.save(data);
+    history.replaceState(null, '', 'messages.html?to=' + id);
+    $('chatApp').classList.add('open');
+    const c = contactById(id);
+    $('chatMain').innerHTML = `
+      <div class="chat-head">
+        <button class="back" id="backBtn" aria-label="Retour"><svg class="i"><use href="#i-left"/></svg></button>
+        <a href="${c.href}" class="av ${c.online ? 'on' : ''}"><img src="${FACE(c.photo)}" alt=""></a>
+        <div><h3>${c.name}</h3><p class="${c.online ? 'on' : ''}">${c.online ? 'En ligne' : c.role}</p></div>
+        <a class="btn btn-ghost btn-sm" href="${c.href}">${icon('user')}Voir le profil</a>
+      </div>
+      <div class="chat-body" id="chatBody"></div>
+      <div class="quick" id="quick">
+        ${['Merci beaucoup !', 'D\'accord, ça marche', 'Tu peux m\'expliquer ?', 'On révise ensemble ?'].map(q => `<button>${q}</button>`).join('')}
+      </div>
+      <form class="chat-input" id="chatForm">
+        <button type="button" class="icon-btn" id="attachBtn" aria-label="Joindre un fichier"><svg class="i"><use href="#i-clip"/></svg></button>
+        <textarea id="msgInput" rows="1" placeholder="Écrire un message…"></textarea>
+        <button type="submit" class="icon-btn send" id="sendBtn" aria-label="Envoyer" disabled><svg class="i"><use href="#i-send"/></svg></button>
+      </form>`;
+    renderMessages();
+    renderList();
+    updateBadges();
+    renderInfo();
+    bindChat();
+    if (matchMedia('(min-width: 861px)').matches) $('msgInput').focus();
+  }
+
+  function renderMessages(typing = false) {
+    const msgs = data[current].msgs;
+    let html = '', prevDay = null, prevFrom = null;
+    if (!msgs.length) html = `<p class="day">Démarrez la conversation avec ${contactById(current).name.split(' ')[0]}</p>`;
+    msgs.forEach(m => {
+      if (dayKey(m.t) !== prevDay) { html += `<span class="day">${dayLabel(m.t)}</span>`; prevDay = dayKey(m.t); prevFrom = null; }
+      const body = m.file
+        ? `<div class="fileb">${icon('file')}<div>${esc(m.file.name)}<small>${m.file.size}</small></div></div>`
+        : esc(m.text).replace(/\n/g, '<br>');
+      html += `<div class="msg ${m.from} ${prevFrom === m.from ? 'next-same' : ''}">${body}
+        <div class="meta">${hhmm(m.t)}${m.from === 'me' ? icon('checks') : ''}</div></div>`;
+      prevFrom = m.from;
+    });
+    if (typing) html += '<div class="typing"><i></i><i></i><i></i></div>';
+    $('chatBody').innerHTML = html;
+    $('chatBody').scrollTop = $('chatBody').scrollHeight;
+  }
+
+  // ---- Envoi et réponse simulée ----
+  const REPLIES = [
+    [/merci/i, ['Avec plaisir !', 'De rien, bon courage pour la suite !']],
+    [/(réviser|révise|ensemble|session)/i, ['Oui, bonne idée ! Jeudi 19 h, ça te va ?', 'Carrément, on se fait une session demain ?']],
+    [/(expliquer|comprends|aide|bloqu)/i, ['Bien sûr ! Dis-moi sur quelle leçon tu bloques.', 'Pas de souci, envoie-moi ton exercice et je regarde.']],
+    [/(bonjour|salut|hello|coucou)/i, ['Salut ! Comment ça va ?', 'Hello ! Tu avances bien dans tes cours ?']],
+    [/\?$/, ['Bonne question ! Je pense que oui, regarde la section exercices du cours.', 'Je me suis posé la même question, la réponse est dans le module 3.']],
+    [/.*/, ['Super, merci pour ton message !', 'D\'accord, je regarde ça et je te redis.', 'Top ! On en reparle bientôt.']]
+  ];
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+
+  function send(msg) {
+    const id = current;
+    data[id].msgs.push({ from: 'me', t: Date.now(), ...msg });
+    Chat.save(data);
+    renderMessages();
+    renderList();
+    renderInfo();
+    // L'interlocuteur « écrit… » puis répond
+    setTimeout(() => { if (current === id) renderMessages(true); }, 700);
+    setTimeout(() => {
+      const text = msg.file ? 'Merci, j\'ai bien reçu ton fichier !' : pick(REPLIES.find(([re]) => re.test(msg.text.trim()))[1]);
+      data[id].msgs.push({ from: 'them', text, t: Date.now() });
+      if (current !== id) { data[id].unread = (data[id].unread || 0) + 1; toast(`Nouveau message de ${contactById(id).name}`); }
+      Chat.save(data);
+      if (current === id) renderMessages();
+      renderList();
+      updateBadges();
+    }, 1800 + Math.random() * 1200);
+  }
+
+  function bindChat() {
+    const input = $('msgInput');
+    const grow = () => { input.style.height = 'auto'; input.style.height = input.scrollHeight + 'px'; input.style.overflowY = input.scrollHeight > 120 ? 'auto' : 'hidden'; $('sendBtn').disabled = !input.value.trim(); };
+    input.addEventListener('input', grow);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('chatForm').requestSubmit(); } });
+    $('chatForm').onsubmit = e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      grow();
+      send({ text });
+    };
+    $('quick').onclick = e => { if (e.target.tagName === 'BUTTON') send({ text: e.target.textContent }); };
+    $('attachBtn').onclick = () => $('fileInput').click();
+    $('backBtn').onclick = () => { $('chatApp').classList.remove('open'); current = null; history.replaceState(null, '', 'messages.html'); renderList(); };
+  }
+
+  $('fileInput').onchange = e => {
+    const f = e.target.files[0];
+    if (!f || !current) return;
+    const size = f.size > 1e6 ? (f.size / 1e6).toFixed(1) + ' Mo' : Math.max(1, Math.round(f.size / 1e3)) + ' Ko';
+    send({ file: { name: f.name, size } });
+    e.target.value = '';
+  };
+
+  $('convList').onclick = e => { const b = e.target.closest('.conv'); if (b) openConv(b.dataset.id); };
+  $('convSearch').oninput = renderList;
+
+  // ---- Nouveau message ----
+  const contacts = [...STUDENTS.map(s => s.id), ...TEACHERS.map(t => t.id)].map(contactById);
+  function renderContacts() {
+    const q = $('contactSearch').value.trim().toLowerCase();
+    $('contactList').innerHTML = contacts.filter(c => c.name.toLowerCase().includes(q)).map(c => `
+      <button class="conv" data-id="${c.id}">
+        <span class="av ${c.online ? 'on' : ''}"><img src="${FACE(c.photo)}" alt=""></span>
+        <span class="txt"><b>${c.name}</b><span class="last" style="display:block">${c.role}</span></span>
+      </button>`).join('');
+  }
+  $('newBtn').onclick = () => { $('modal').classList.add('show'); $('contactSearch').value = ''; renderContacts(); $('contactSearch').focus(); };
+  $('closeModal').onclick = () => $('modal').classList.remove('show');
+  $('modal').onclick = e => { if (e.target.id === 'modal') $('modal').classList.remove('show'); };
+  $('contactSearch').oninput = renderContacts;
+  $('contactList').onclick = e => { const b = e.target.closest('.conv'); if (b) { $('modal').classList.remove('show'); openConv(b.dataset.id); } };
+
+  // ---- Infos du contact (3e colonne sur grand écran) ----
+  let muted = [];
+  try { muted = JSON.parse(localStorage.getItem('apprendo-muted')) || []; } catch {}
+  function renderInfo() {
+    if (!current) { $('chatInfo').innerHTML = ''; return; }
+    const c = contactById(current), s = studentById(current), t = teacherById(current);
+    const mine = ENROLLED.map(e => e.id);
+    const theirs = s ? Object.keys(s.courses) : coursesOf(t.id).map(x => x.id);
+    const common = theirs.filter(id => mine.includes(id)).map(courseById);
+    const files = data[current].msgs.filter(m => m.file);
+    const isMuted = muted.includes(current);
+    const stats = s
+      ? [[fmtNum(s.xp), 'XP'], [s.streak + ' j', 'série'], ['#' + studentRank(s), 'classement']]
+      : [[t.rating.toFixed(1).replace('.', ','), 'note'], [coursesOf(t.id).length, 'cours'], [Math.round(t.followers / 1000) + 'k', 'abonnés']];
+    $('chatInfo').innerHTML = `
+      <div class="ci-head">
+        <span class="av ${c.online ? 'on' : ''}"><img src="${FACE(c.photo)}" alt=""></span>
+        <h3>${c.name}</h3>
+        <p>${c.role}${s ? ` · ${s.city}` : ''}</p>
+        <p class="${c.online ? 'ci-on' : ''}">${c.online ? 'En ligne' : 'Hors ligne'}</p>
+      </div>
+      <div class="ci-stats">${stats.map(([v, l]) => `<div><b>${v}</b><small>${l}</small></div>`).join('')}</div>
+      <div class="ci-actions">
+        <a class="btn btn-soft btn-sm" href="${c.href}">${icon('user')}Profil</a>
+        <button class="btn btn-ghost btn-sm" id="muteBtn" aria-pressed="${isMuted}">${icon(isMuted ? 'bell' : 'bell')}${isMuted ? 'Réactiver' : 'Silencieux'}</button>
+      </div>
+      ${s ? `<p class="ci-bio">${s.bio}</p>` : `<p class="ci-bio">${t.bio}</p>`}
+      <h4>${common.length ? 'Cours en commun' : s ? 'Ses cours' : 'Ses cours'}</h4>
+      <div class="ci-list">${(common.length ? common : theirs.map(courseById)).slice(0, 4).map(x => `
+        <a href="cours-detail.html?id=${x.id}"><img src="${IMG(x.img, 120)}" alt=""><span><b>${x.title.split(':')[0].trim()}</b><small>${s && s.courses[x.id] !== undefined ? s.courses[x.id] + ' % terminé' : teacherById(x.teacher).name}</small></span></a>`).join('')}</div>
+      <h4>Fichiers partagés</h4>
+      ${files.length ? `<div class="ci-files">${files.map(m => `<span>${icon('file')}<b>${m.file.name.replace(/</g, '&lt;')}</b><small>${m.file.size}</small></span>`).join('')}</div>`
+        : '<p class="ci-empty">Aucun fichier pour l\'instant.</p>'}`;
+    $('muteBtn').onclick = () => {
+      muted = muted.includes(current) ? muted.filter(x => x !== current) : [...muted, current];
+      try { localStorage.setItem('apprendo-muted', JSON.stringify(muted)); } catch {}
+      toast(muted.includes(current) ? 'Conversation en silencieux' : 'Notifications réactivées');
+      renderInfo();
+    };
+  }
+  $('helpBtn').onclick = () => $('fab')?.click();
+
+  // ---- Ouverture initiale ----
+  const to = params.get('to');
+  if (to && contactById(to)) openConv(to);
+  else if (matchMedia('(min-width: 861px)').matches) {
+    const first = Object.keys(data).sort((a, b) => (lastOf(b)?.t || 0) - (lastOf(a)?.t || 0))[0];
+    first ? openConv(first) : renderList();
+  } else renderList();
+</script>
+</body>
+</html>

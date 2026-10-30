@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificats – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="certificats">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › Certificats</div>
+      <h1>Mes certificats</h1>
+      <p>Les certificats de réussite des cours que vous avez terminés à 100 %.</p>
+    </div>
+
+    <div class="cert-status" id="status"></div>
+    <div class="cert-grid2" id="grid"></div>
+
+    <div class="section-title" style="margin-top:40px">Bientôt un nouveau certificat</div>
+    <div class="grid-cards" id="next"></div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const done = () => ENROLLED.filter(e => e.progress === 100);
+
+  // Bandeau : ce que coûte la récupération selon la formule
+  function renderStatus() {
+    const p = Sub.plan();
+    const left = p && p.certs !== Infinity ? Math.max(0, p.certs - Certs.usedThisMonth()) : null;
+    $('status').innerHTML = p
+      ? `${icon('crown')}<span>Formule <b>${p.name}</b> : ${p.certs === Infinity ? 'certificats inclus et illimités' : `${left} certificat${left > 1 ? 's' : ''} inclus restant${left > 1 ? 's' : ''} ce mois-ci, puis ${CERT_PRICE} cauris`}.</span>`
+      : `${icon('cauri')}<span>Sans abonnement, chaque certificat se récupère pour <b>${CERT_PRICE} cauris</b> (≈ ${fmtXAF(caurisToXAF(CERT_PRICE))}). Solde : ${fmtCauris(Wallet.balance())}.</span><a class="btn btn-primary btn-sm" href="abonnements.html">Voir les abonnements</a>`;
+  }
+
+  function renderGrid() {
+    const list = done();
+    const cost = Certs.cost();
+    $('grid').innerHTML = list.map(e => {
+      const c = courseById(e.id), info = Certs.all()[e.id];
+      return `<article class="ccert ${info ? '' : 'locked'}">
+        <div class="ccert-preview">${certHTML(c, e, info)}
+          ${info ? '' : `<div class="ccert-lock">${icon('lock')}<span>Certificat prêt à récupérer</span></div>`}</div>
+        <div class="ccert-foot">
+          <div><b>${c.title.split(':')[0].trim()}</b><small>Terminé le ${e.done}${info ? ` · récupéré le ${new Date(info.date).toLocaleDateString('fr-FR')}` : ''}</small></div>
+          ${info
+            ? `<div class="ccert-actions"><button class="btn btn-soft btn-sm" data-copy="${info.code}" aria-label="Copier le numéro">${icon('share')}</button><button class="btn btn-primary btn-sm" data-print="${e.id}">${icon('download')}PDF</button></div>`
+            : `<button class="btn btn-primary btn-sm" data-unlock="${e.id}">${cost ? `Récupérer · ${fmtCauris(cost)}` : 'Récupérer (inclus)'}</button>`}
+        </div>
+      </article>`;
+    }).join('') || `<div class="empty"><div class="ico">${icon('award')}</div><h3>Pas encore de certificat</h3><p>Terminez un cours à 100 % pour obtenir votre premier certificat.</p><a class="btn btn-primary" href="mes-cours.html">Reprendre mes cours</a></div>`;
+  }
+
+  // Version imprimable (enregistrable en PDF depuis la fenêtre d'impression)
+  function printCert(id) {
+    const e = done().find(x => x.id === id), c = courseById(id), info = Certs.all()[id];
+    const css = [...document.styleSheets].map(s => { try { return [...s.cssRules].map(r => r.cssText).join('\n'); } catch { return ''; } }).join('\n');
+    const sprite = document.querySelector('body > svg').outerHTML;
+    const w = window.open('', '_blank');
+    if (!w) return toast('Autorisez les fenêtres pop-up pour télécharger le certificat');
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Certificat – ${c.title}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>${css}
+        @page { size: A4 landscape; margin: 0; }
+        html, body { background: #fff !important; margin: 0; }
+        .print-wrap { width: 297mm; height: 210mm; display: grid; place-items: center; }
+        .print-wrap .cpaper { width: 270mm; height: 185mm; box-shadow: none; }
+      </style></head><body>${sprite}<div class="print-wrap">${certHTML(c, e, info, true)}</div>
+      <script>document.fonts.ready.then(() => setTimeout(() => print(), 300));<\/script></body></html>`);
+    w.document.close();
+  }
+
+  $('grid').onclick = e => {
+    const u = e.target.closest('[data-unlock]'), p = e.target.closest('[data-print]'), cp = e.target.closest('[data-copy]');
+    if (u) {
+      const id = u.dataset.unlock, c = courseById(id), cost = Certs.cost();
+      if (cost) {
+        if (Wallet.balance() < cost) { toast(`Solde insuffisant : rechargez vos cauris`); return setTimeout(() => location.href = 'abonnements.html#cauris', 1200); }
+        if (!confirm(`Récupérer le certificat « ${c.title.split(':')[0].trim()} » pour ${cost} cauris ?`)) return;
+        Wallet.spend(cost, `Certificat « ${c.title.split(':')[0].trim()} »`);
+        Certs.unlock(id, 'cauris');
+      } else Certs.unlock(id, 'abonnement');
+      toast('Certificat récupéré');
+      renderStatus(); renderGrid();
+    }
+    if (p) printCert(p.dataset.print);
+    if (cp) { navigator.clipboard?.writeText(cp.dataset.copy); toast('Numéro du certificat copié : ' + cp.dataset.copy); }
+  };
+  document.addEventListener('walletchange', () => { renderStatus(); renderGrid(); });
+
+  // Cours presque terminés
+  $('next').innerHTML = ENROLLED.filter(e => e.progress < 100).sort((a, b) => b.progress - a.progress).slice(0, 4)
+    .map(e => courseCard(courseById(e.id), `
+      <div class="progress"><span style="width:${e.progress}%"></span></div>
+      <div class="foot"><span>${e.progress} % terminé</span><span>encore ${100 - e.progress} %</span></div>`).replace('cours-detail.html?id=', 'lecture.html?id=')).join('');
+
+  renderStatus();
+  renderGrid();
+</script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cours – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="catalogue-detail">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <section class="detail-hero" id="hero"></section>
+
+    <div class="detail-grid">
+      <div>
+        <div class="learn">
+          <h2 class="h">Ce que vous apprendrez</h2>
+          <ul id="learn"></ul>
+        </div>
+
+        <h2 class="h">Contenu du cours</h2>
+        <div class="curriculum-wrap">
+          <div class="curriculum-head info-line" id="curInfo" style="font-size:13px;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"></div>
+          <div class="curriculum" id="curriculum"></div>
+        </div>
+
+        <h2 class="h">Prérequis</h2>
+        <div class="prose" id="prereq"></div>
+
+        <h2 class="h">Description</h2>
+        <div class="prose" id="desc"></div>
+
+        <h2 class="h">Formateur</h2>
+        <div class="author-card" id="author"></div>
+
+        <div class="section-title">Les apprenants ont aussi consulté</div>
+        <div class="grid-cards" id="similar"></div>
+      </div>
+
+      <aside class="buy-card" id="buy"></aside>
+    </div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const c = courseById(params.get('id')) || COURSES[0];
+  const t = teacherById(c.teacher);
+  const cat = catById(c.cat);
+  let enrolled = Learn.isEnrolled(c.id) ? { progress: Learn.progress(c.id) } : null;
+  const sections = buildCurriculum(c);
+  const previews = sections.flatMap(s => s.lessons).filter(l => l.preview);
+  document.title = c.title + ' – Koyeba';
+
+  // ---- En-tête ----
+  $('hero').innerHTML = `
+    <div class="crumbs"><a href="categories.html">Catégories</a> › <a href="cours.html?cat=${cat.id}">${cat.name}</a></div>
+    <h1>${c.title}</h1>
+    <p class="lead">${c.subtitle}</p>
+    <div class="rate">
+      ${c.best ? '<span class="badge-best">Meilleure vente</span>' : ''}
+      <span class="rating-num">${c.rating.toFixed(1).replace('.', ',')}</span>${starsHTML(c.rating)}
+      <span style="opacity:.85">(${fmtNum(c.reviews)} avis) · ${fmtNum(c.students)} apprenants</span>
+    </div>
+    <p style="font-size:13px;margin-bottom:10px">Créé par <a class="author" href="formateurs.html#${t.id}">${t.name}</a></p>
+    <div class="meta">
+      <span>${icon('calendar')}Mis à jour ${c.updated}</span>
+      <span>${icon('globe')}${c.lang}</span>
+      <span>${icon('layers')}${LEVELS[c.level]}</span>
+    </div>`;
+
+  // ---- Carte d'inscription ----
+  const feats = { audio: ['headphones', '<a href="audio.html" style="color:var(--green);font-weight:600">Version audio pour non-voyants</a>'], soustitres: ['file', 'Sous-titres'], quiz: ['check', 'Quiz pour valider vos acquis'], exercices: ['notes', 'Exercices pratiques'], certificat: ['award', 'Certificat de réussite'] };
+  function renderBuy() {
+    const fav = Favs.has(c.id);
+    $('buy').innerHTML = `
+      <div class="preview">
+        <img src="${IMG(c.img, 700)}" alt="">
+        <button class="pbtn" data-preview="${previews[0].id}" aria-label="Voir l'aperçu du cours">${icon('play')}</button>
+        <small>Aperçu de ce cours</small>
+      </div>
+      <div class="inner">
+        ${enrolled
+          ? `<div><b>Votre progression : ${enrolled.progress} %</b><div class="progress"><span style="width:${enrolled.progress}%"></span></div></div>
+             <a class="btn btn-primary btn-block" href="lecture.html?id=${c.id}">${icon('play')}${enrolled.progress === 100 ? 'Revoir le cours' : enrolled.progress === 0 ? 'Commencer le cours' : 'Continuer le cours'}</a>`
+          : Sub.includesCourse(c) && c.price > 0
+          ? `<div class="incl-plan">${icon('crown')}<span>Inclus dans votre formule <b>${Sub.plan().name}</b></span></div>
+             <button class="btn btn-primary btn-block" id="enrollBtn">${icon('play')}Commencer le cours</button>`
+          : `<div class="big-price">${fmtPrice(c.price)}${c.old ? `<s>${fmtPrice(c.old)}</s>` : ''}</div>
+             ${c.price > 0 ? `<p class="price-eq">≈ ${fmtXAF(caurisToXAF(coursePrice(c)))} · votre solde : ${fmtCauris(Wallet.balance())}</p>` : ''}
+             <button class="btn btn-primary btn-block" id="enrollBtn">${c.price === 0 ? 'S\'inscrire gratuitement' : `Acheter pour ${fmtNum(coursePrice(c))} cauris`}</button>
+             ${c.price > 0 ? `<a class="btn btn-soft btn-block" href="abonnements.html">${icon('crown')}Ou inclus avec un abonnement</a>` : ''}`}
+        <button class="btn btn-ghost btn-block ${fav ? 'on' : ''}" data-fav="${c.id}">${icon('heart')}${fav ? 'Dans vos favoris' : 'Ajouter aux favoris'}</button>
+        ${enrolled || c.price === 0 ? '' : '<p class="guarantee">Satisfait ou remboursé pendant 30 jours</p>'}
+        <div class="includes">
+          <h4>Ce cours comprend :</h4>
+          <ul>
+            <li>${icon('video')}${c.hours} heures de vidéo à la demande</li>
+            <li>${icon('book')}${c.lessons} leçons</li>
+            ${c.features.map(f => `<li>${icon(feats[f][0])}${feats[f][1]}</li>`).join('')}
+            <li>${icon('mobile')}Accès sur mobile et ordinateur</li>
+            <li>${icon('infinity')}Accès illimité à vie</li>
+          </ul>
+        </div>
+        <button class="btn btn-soft btn-block" onclick="navigator.clipboard?.writeText(location.href);toast('Lien du cours copié')">${icon('share')}Partager</button>
+      </div>`;
+  }
+  renderBuy();
+  document.addEventListener('favchange', renderBuy);
+  // Inscription : gratuite, incluse dans l'abonnement, ou achat en cauris
+  document.addEventListener('walletchange', renderBuy);
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#enrollBtn')) return;
+    const price = coursePrice(c);
+    if (c.price > 0 && !Sub.includesCourse(c)) {
+      if (Wallet.balance() < price) {
+        toast(`Solde insuffisant : il manque ${fmtNum(price - Wallet.balance())} cauris`);
+        return setTimeout(() => location.href = 'abonnements.html#cauris', 1200);
+      }
+      if (!confirm(`Acheter « ${c.title} » pour ${fmtNum(price)} cauris ?`)) return;
+      Wallet.spend(price, `Achat du cours « ${c.title.split(':')[0].trim()} »`);
+    }
+    Learn.enroll(c.id);
+    toast(c.price === 0 ? 'Inscription confirmée' : Sub.includesCourse(c) ? 'Cours ajouté à votre bibliothèque' : 'Cours acheté, bon apprentissage !');
+    setTimeout(() => location.href = `lecture.html?id=${c.id}`, 700);
+  });
+
+  // ---- Ce que vous apprendrez ----
+  $('learn').innerHTML = LEARN[c.cat].map(l => `<li>${icon('check')}<span>${l}</span></li>`).join('');
+
+  // ---- Programme (généré à partir du nombre de leçons et de la durée) ----
+  const SECTIONS = ['Introduction et installation', 'Les notions fondamentales', 'Aller plus loin', 'Mise en pratique guidée', 'Projet final', 'Conclusion et prochaines étapes'];
+  const perSec = Math.ceil(c.lessons / SECTIONS.length);
+  const minPerLesson = Math.round(c.hours * 60 / c.lessons);
+  $('curInfo').innerHTML = `<span>${SECTIONS.length} sections · ${c.lessons} leçons · ${c.hours} h de contenu</span><button class="link-btn" id="toggleAll">Tout développer</button>`;
+  $('curriculum').innerHTML = SECTIONS.map((s, i) => {
+    const n = i === SECTIONS.length - 1 ? c.lessons - perSec * (SECTIONS.length - 1) : perSec;
+    const shown = sections[i].lessons;
+    return `<details class="csec" ${i === 0 ? 'open' : ''}>
+      <summary><svg class="i"><use href="#i-chevron"/></svg>${s}<span>${n} leçons · ${Math.round(n * minPerLesson)} min</span></summary>
+      ${shown.map(l => `
+        <div class="lesson">${icon(LESSON_TYPES[l.type].icon)}
+          <span>${l.title} <small style="color:var(--muted)">· ${LESSON_TYPES[l.type].label}</small></span>
+          ${l.preview ? `<button class="apercu link-btn" style="margin-left:auto" data-preview="${l.id}">Aperçu</button>` : ''}
+          <span class="t" ${l.preview ? 'style="margin-left:12px"' : ''}>${String(l.min).padStart(2, '0')}:00</span>
+        </div>`).join('')}
+      ${n > shown.length ? `<div class="lesson" style="color:var(--muted)">+ ${n - shown.length} autres leçons</div>` : ''}
+    </details>`;
+  }).join('');
+
+  // ---- Aperçu gratuit (fenêtre avec lecteur vidéo) ----
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal" id="pvModal" role="dialog" aria-modal="true" aria-labelledby="pvTitle">
+      <div class="box preview-box">
+        <header><div><small style="color:var(--muted);font-size:12px">Aperçu du cours</small><h3 id="pvTitle" style="font-size:16px"></h3></div>
+          <button id="pvClose" aria-label="Fermer l'aperçu">${icon('x')}</button></header>
+        <video id="pvVideo" controls playsinline poster="${IMG(c.img, 900)}" src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"></video>
+        <div class="pv-list" id="pvList"></div>
+      </div>
+    </div>`);
+  function openPreview(id) {
+    const l = previews.find(x => x.id === id) || previews[0];
+    $('pvTitle').textContent = l.title;
+    $('pvList').innerHTML = `<p style="font-size:12px;color:var(--muted);padding:8px 14px 4px">Leçons gratuites</p>` + previews.map(x =>
+      `<button class="${x.id === l.id ? 'on' : ''}" data-pv="${x.id}">${icon('play')}${x.title}<span>${x.min} min</span></button>`).join('');
+    $('pvModal').classList.add('show');
+    const v = $('pvVideo'); v.currentTime = 0; v.play().catch(() => {});
+  }
+  const closePreview = () => { $('pvModal').classList.remove('show'); $('pvVideo').pause(); };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-preview]');
+    if (b) { e.preventDefault(); openPreview(b.dataset.preview); }
+  });
+  $('pvList').onclick = e => { const b = e.target.closest('[data-pv]'); if (b) openPreview(b.dataset.pv); };
+  $('pvClose').onclick = closePreview;
+  $('pvModal').onclick = e => { if (e.target.id === 'pvModal') closePreview(); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('pvModal').classList.contains('show')) closePreview(); });
+  $('toggleAll').onclick = e => {
+    const secs = document.querySelectorAll('.csec');
+    const open = [...secs].some(s => !s.open);
+    secs.forEach(s => s.open = open);
+    e.target.textContent = open ? 'Tout réduire' : 'Tout développer';
+  };
+
+  // ---- Prérequis et description ----
+  $('prereq').innerHTML = `<ul>
+    ${c.level === 'debutant' ? '<li>Aucune connaissance préalable : on part de zéro.</li>' : `<li>Avoir suivi un cours de niveau ${c.level === 'avance' ? 'intermédiaire' : 'débutant'} en ${cat.name.toLowerCase()}, ou avoir une expérience équivalente.</li>`}
+    <li>Un ordinateur avec une connexion Internet.</li>
+    <li>L'envie d'apprendre et de pratiquer régulièrement.</li></ul>`;
+  $('desc').innerHTML = `<p>${c.subtitle} Ce cours a été conçu par <b>${t.name}</b> pour vous faire progresser rapidement grâce à des explications claires et de nombreux exemples concrets.</p>
+    <p style="margin-top:10px">Chaque section se termine par un exercice pour valider vos acquis. À la fin, vous réaliserez un projet complet que vous pourrez présenter dans votre CV ou votre portfolio.</p>
+    <p style="margin-top:10px"><b>À qui s'adresse ce cours ?</b></p>
+    <ul><li>Aux ${c.level === 'debutant' ? 'débutants complets' : 'personnes qui ont déjà les bases'} qui veulent progresser en ${cat.name.toLowerCase()}.</li>
+    <li>Aux étudiants et professionnels en reconversion.</li></ul>`;
+
+  // ---- Formateur ----
+  const tc = coursesOf(t.id);
+  $('author').innerHTML = `
+    <img src="${FACE(t.photo)}" alt="${t.name}">
+    <div>
+      <h3><a href="formateurs.html#${t.id}">${t.name}</a></h3>
+      <div class="role">${t.role}</div>
+      <div class="stats">
+        <span>${icon('star')}${t.rating.toFixed(1).replace('.', ',')} note moyenne</span>
+        <span>${icon('users')}${fmtNum(tc.reduce((s, x) => s + x.students, 0))} apprenants</span>
+        <span>${icon('video')}${tc.length} cours</span>
+      </div>
+      <p>${t.bio}</p>
+    </div>`;
+
+  // ---- Cours similaires ----
+  $('similar').innerHTML = COURSES.filter(x => x.id !== c.id && (x.cat === c.cat || x.teacher === c.teacher))
+    .concat(COURSES.filter(x => x.id !== c.id && x.cat !== c.cat && x.teacher !== c.teacher))
+    .slice(0, 4).map(x => courseCard(x)).join('');
+</script>
+</body>
+</html>

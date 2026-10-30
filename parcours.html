@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parcours – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="parcours">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap">
+      <div>
+        <div class="crumbs"><a href="index.html">Accueil</a> › Parcours</div>
+        <h1>Parcours d'apprentissage</h1>
+        <p>Des formations organisées étape par étape pour atteindre un objectif précis.</p>
+      </div>
+      <a class="btn btn-primary" href="nouveau-parcours.html"><svg class="i"><use href="#i-plus"/></svg>Créer mon parcours</a>
+    </div>
+
+    <div class="path-list" id="paths"></div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  // Parcours créés par l'utilisateur (page « Nouveau parcours »)
+  let custom = [];
+  try { custom = JSON.parse(localStorage.getItem('apprendo-paths')) || []; } catch {}
+
+  const all = [...custom.map(p => ({ ...p, tag: 'Mon parcours' })), ...PATHS];
+
+  $('paths').innerHTML = all.map(p => {
+    const list = p.courses.map(courseById).filter(Boolean);
+    const hours = list.reduce((s, c) => s + c.hours, 0);
+    const lessons = list.reduce((s, c) => s + c.lessons, 0);
+    // Progression = moyenne des progressions des cours suivis
+    const prog = Math.round(list.reduce((s, c) => s + (ENROLLED.find(e => e.id === c.id)?.progress || 0), 0) / list.length);
+    const cover = p.img || list[0].img;
+    return `<article class="path">
+      <div class="cover"><img src="${IMG(cover, 700)}" alt="" loading="lazy"><span class="tag">${p.tag}</span></div>
+      <div class="content">
+        <h3>${p.title}</h3>
+        <p class="desc">${p.desc || ''}</p>
+        <div class="meta">
+          <span>${icon('book')}${list.length} cours</span>
+          <span>${icon('clock')}${hours} heures</span>
+          <span>${icon('video')}${lessons} leçons</span>
+          ${p.level ? `<span>${icon('layers')}${LEVELS[p.level]}</span>` : ''}
+          <span>${icon('award')}Certificat de parcours</span>
+        </div>
+        <div class="steps">
+          ${list.map((c, i) => `<a class="step" href="cours-detail.html?id=${c.id}"><img src="${IMG(c.img, 80)}" alt=""><b>${i + 1}</b>${c.title.split(':')[0]}</a>`).join('')}
+        </div>
+        <div class="actions">
+          <div class="progress"><span style="width:${prog}%"></span></div>
+          <span style="font-size:12px;color:var(--muted)">${prog} % terminé</span>
+          <a class="btn btn-primary btn-sm" href="lecture.html?id=${(list.find(c => (ENROLLED.find(e => e.id === c.id)?.progress || 0) < 100) || list[0]).id}">
+            ${prog > 0 ? 'Continuer' : 'Commencer'} ${icon('arrow')}</a>
+        </div>
+      </div>
+    </article>`;
+  }).join('');
+</script>
+</body>
+</html>

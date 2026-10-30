@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Favoris – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="favoris">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › Favoris</div>
+      <h1>Mes favoris</h1>
+      <p id="sub">Les cours que vous avez mis de côté pour plus tard.</p>
+    </div>
+
+    <div class="grid-cards" id="grid"></div>
+
+    <div id="suggest" style="margin-top:40px">
+      <div class="section-title">Suggestions pour vous <a href="cours.html">Voir le catalogue →</a></div>
+      <div class="grid-cards" id="suggestGrid"></div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  function render() {
+    const favs = Favs.get().map(courseById).filter(Boolean);
+    $('sub').textContent = favs.length
+      ? `${favs.length} cours mis de côté pour plus tard.`
+      : 'Les cours que vous avez mis de côté pour plus tard.';
+    $('grid').style.display = favs.length ? '' : 'block';
+    $('grid').innerHTML = favs.map(c => courseCard(c)).join('') || `
+      <div class="empty">
+        <div class="ico"><svg class="i"><use href="#i-heart"/></svg></div>
+        <h3>Aucun favori pour l'instant</h3>
+        <p>Cliquez sur le cœur d'un cours pour le retrouver ici.</p>
+        <a class="btn btn-primary" href="cours.html">Explorer les cours</a>
+      </div>`;
+    $('suggestGrid').innerHTML = COURSES.filter(c => !Favs.has(c.id) && c.best).slice(0, 4).map(c => courseCard(c)).join('');
+  }
+  document.addEventListener('favchange', render);
+  render();
+</script>
+</body>
+</html>

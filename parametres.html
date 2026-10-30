@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paramètres – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="parametres">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › Paramètres</div>
+      <h1>Paramètres</h1>
+      <p>Personnalisez votre expérience d'apprentissage. Les changements sont enregistrés automatiquement.</p>
+    </div>
+
+    <div style="max-width:820px">
+      <div class="card">
+        <h3>Apparence</h3>
+        <div class="setting">
+          <div><h4>Thème</h4><p>Choisissez entre le mode clair et le mode sombre.</p></div>
+          <select class="select" id="theme"><option value="light">Clair</option><option value="dark">Sombre</option></select>
+        </div>
+        <div class="setting">
+          <div><h4>Langue de l'interface</h4><p>La langue utilisée dans les menus.</p></div>
+          <select class="select" data-key="lang"><option>Français</option><option>English</option></select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Lecture des vidéos</h3>
+        <div class="setting">
+          <div><h4>Lecture automatique</h4><p>Passer automatiquement à la leçon suivante.</p></div>
+          <button class="switch" data-key="autoplay" aria-label="Lecture automatique"></button>
+        </div>
+        <div class="setting">
+          <div><h4>Sous-titres</h4><p>Afficher les sous-titres quand ils sont disponibles.</p></div>
+          <button class="switch" data-key="subtitles" aria-label="Sous-titres"></button>
+        </div>
+        <div class="setting">
+          <div><h4>Qualité vidéo</h4><p>Une qualité plus basse consomme moins de données.</p></div>
+          <select class="select" data-key="quality"><option>Automatique</option><option>1080p</option><option>720p</option><option>480p</option></select>
+        </div>
+        <div class="setting">
+          <div><h4>Vitesse par défaut</h4><p>Vitesse de lecture des vidéos.</p></div>
+          <select class="select" data-key="speed"><option>0,75×</option><option selected>1×</option><option>1,25×</option><option>1,5×</option><option>2×</option></select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Notifications</h3>
+        <div class="setting">
+          <div><h4>Rappels d'apprentissage</h4><p>Un rappel si vous n'avez pas étudié depuis 3 jours.</p></div>
+          <button class="switch" data-key="reminders" aria-label="Rappels"></button>
+        </div>
+        <div class="setting">
+          <div><h4>Nouveaux cours de mes formateurs</h4><p>Être prévenu quand un formateur suivi publie un cours.</p></div>
+          <button class="switch" data-key="newcourses" aria-label="Nouveaux cours"></button>
+        </div>
+        <div class="setting">
+          <div><h4>Offres et promotions</h4><p>Recevoir les réductions par e-mail.</p></div>
+          <button class="switch" data-key="promos" aria-label="Promotions"></button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Confidentialité et données</h3>
+        <div class="setting">
+          <div><h4>Profil public</h4><p>Les autres apprenants peuvent voir vos certificats.</p></div>
+          <button class="switch" data-key="public" aria-label="Profil public"></button>
+        </div>
+        <div class="setting">
+          <div><h4>Mes données</h4><p>Télécharger une copie de vos données d'apprentissage.</p></div>
+          <button class="btn btn-ghost btn-sm" onclick="toast('Votre export sera envoyé par e-mail')"><svg class="i"><use href="#i-download"/></svg>Exporter</button>
+        </div>
+        <div class="setting">
+          <div><h4>Supprimer le compte</h4><p>Cette action est définitive et efface toute votre progression.</p></div>
+          <button class="btn btn-ghost btn-sm" onclick="confirm('Voulez-vous vraiment supprimer votre compte ?') && toast('Demande de suppression envoyée')"><svg class="i"><use href="#i-trash"/></svg>Supprimer</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const DEFAULTS = { autoplay: true, subtitles: false, quality: 'Automatique', speed: '1×', lang: 'Français', reminders: true, newcourses: true, promos: false, public: true };
+  let prefs = { ...DEFAULTS };
+  try { prefs = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('apprendo-prefs')) }; } catch {}
+  const save = () => { try { localStorage.setItem('apprendo-prefs', JSON.stringify(prefs)); } catch {} toast('Paramètre enregistré'); };
+
+  document.querySelectorAll('.switch[data-key]').forEach(s => {
+    s.classList.toggle('on', !!prefs[s.dataset.key]);
+    s.onclick = () => { prefs[s.dataset.key] = !prefs[s.dataset.key]; s.classList.toggle('on', prefs[s.dataset.key]); save(); };
+  });
+  document.querySelectorAll('select[data-key]').forEach(s => {
+    s.value = prefs[s.dataset.key];
+    s.onchange = () => { prefs[s.dataset.key] = s.value; save(); };
+  });
+
+  // Le thème est partagé avec l'interrupteur du menu latéral
+  $('theme').value = document.body.classList.contains('dark') ? 'dark' : 'light';
+  $('theme').onchange = e => applyTheme(e.target.value === 'dark');
+  document.addEventListener('themechange', e => $('theme').value = e.detail ? 'dark' : 'light');
+</script>
+</body>
+</html>

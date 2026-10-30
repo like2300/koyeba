@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon compte – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="compte">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › Compte</div>
+      <h1>Mon compte</h1>
+      <p>Votre profil, vos certificats et votre abonnement.</p>
+    </div>
+
+    <div class="form-grid">
+      <form class="card" id="form">
+        <div class="profile-top">
+          <img alt="" id="photo">
+          <div>
+            <h2 id="fullName"></h2>
+            <p id="since"></p>
+            <label class="btn btn-soft btn-sm" style="margin-top:8px;cursor:pointer">
+              <svg class="i"><use href="#i-upload"/></svg>Changer la photo
+              <input type="file" accept="image/*" id="photoInput" hidden>
+            </label>
+          </div>
+        </div>
+        <div class="two-col">
+          <div class="field"><label for="first">Prénom</label><input class="input" id="first" required></div>
+          <div class="field"><label for="last">Nom</label><input class="input" id="last" required></div>
+        </div>
+        <div class="field"><label for="email">Adresse e-mail</label><input class="input" id="email" type="email" readonly></div>
+        <div class="field"><label for="headline">Titre</label><input class="input" id="headline" placeholder="Ex. : Étudiant en informatique à Brazzaville"></div>
+        <div class="field">
+          <label for="bio">Biographie</label>
+          <textarea class="input" id="bio" placeholder="Quelques mots sur vous et ce que vous voulez apprendre"></textarea>
+        </div>
+        <div class="two-col">
+          <div class="field"><label for="site">Site web</label><input class="input" id="site" placeholder="https://"></div>
+          <div class="field"><label for="linkedin">LinkedIn</label><input class="input" id="linkedin" placeholder="linkedin.com/in/…"></div>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:flex-end">
+          <button type="reset" class="btn btn-ghost">Annuler</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+      </form>
+
+      <aside>
+        <div class="card premium" id="planCard"></div>
+        <div class="card" id="stats"></div>
+        <div class="card">
+          <h3>Connexion</h3>
+          <div class="kv"><span>Méthode</span><b id="provider"></b></div>
+          <div class="kv" style="border:none"><span>Membre depuis</span><b id="sinceShort"></b></div>
+          <button class="btn btn-ghost btn-block" style="margin-top:12px" onclick="Auth.logout()"><svg class="i"><use href="#i-logout"/></svg>Se déconnecter</button>
+        </div>
+      </aside>
+    </div>
+
+    <div class="section-title" style="margin-top:40px">Mes certificats <a href="certificats.html">Tout gérer →</a></div>
+    <div class="cert-grid2" id="certs"></div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const u = Auth.user();
+  const sinceTxt = new Date(u.since).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  // Profil
+  function fill() {
+    const v = Auth.user();
+    $('photo').src = FACE(v.photo || initialsAvatar(`${v.first} ${v.last}`));
+    $('fullName').textContent = `${v.first} ${v.last}`.trim();
+    ['first', 'last', 'email', 'headline', 'bio', 'site', 'linkedin'].forEach(k => $(k).value = v[k] || '');
+  }
+  fill();
+  const plan = Sub.plan();
+  $('since').textContent = `Apprenant depuis ${sinceTxt} · ${plan ? 'Formule ' + plan.name : 'Compte gratuit'}`;
+  $('provider').innerHTML = u.provider === 'google' ? 'Google' : 'E-mail et mot de passe';
+  $('sinceShort').textContent = sinceTxt;
+
+  $('first').oninput = $('last').oninput = () => $('fullName').textContent = `${$('first').value} ${$('last').value}`.trim();
+  $('form').onreset = () => setTimeout(fill);
+
+  // Photo : réduite à 240 px puis gardée avec le compte
+  $('photoInput').onchange = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(img.width, img.height), cv = document.createElement('canvas');
+      cv.width = cv.height = 240;
+      cv.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 240, 240);
+      const data = cv.toDataURL('image/jpeg', .85);
+      Auth.update({ photo: data });
+      $('photo').src = data;
+      document.querySelectorAll('.nav-avatar img, .dd-user img, .cc-user img').forEach(i => i.src = data);
+      URL.revokeObjectURL(img.src);
+      toast('Photo mise à jour');
+    };
+    img.src = URL.createObjectURL(f);
+  };
+  $('form').onsubmit = e => {
+    e.preventDefault();
+    const patch = {};
+    ['first', 'last', 'headline', 'bio', 'site', 'linkedin'].forEach(k => patch[k] = $(k).value.trim());
+    if (!patch.first || !patch.last) return toast('Le prénom et le nom sont obligatoires');
+    Auth.update(patch);
+    toast('Profil enregistré');
+  };
+
+  // Formule
+  $('planCard').innerHTML = plan
+    ? `<h3>${icon('crown')}Formule ${plan.name}</h3>
+       <p style="font-size:13px;opacity:.85">Votre abonnement est actif.</p>
+       <div style="font-size:24px;font-weight:700;margin:10px 0 14px">${fmtCauris(Wallet.balance())} <small style="font-size:13px;font-weight:400;opacity:.8">dans votre porte-monnaie</small></div>
+       <a class="btn btn-block" style="background:#fff;color:var(--green-deep)" href="abonnements.html">Gérer mon abonnement</a>`
+    : `<h3>${icon('crown')}Abonnements Koyeba</h3>
+       <p style="font-size:13px;opacity:.85">Accédez à tout le catalogue sans limite.</p>
+       <ul>
+         <li>${icon('check')}Plus de 16 cours et tous les nouveaux</li>
+         <li>${icon('check')}Certificats inclus</li>
+         <li>${icon('check')}Téléchargement hors ligne</li>
+         <li>${icon('check')}Classes en direct illimitées</li>
+       </ul>
+       <div style="font-size:24px;font-weight:700;margin-bottom:14px">Dès 2 000 FCFA <small style="font-size:13px;font-weight:400;opacity:.8">/ mois · 4 formules</small></div>
+       <a class="btn btn-block" style="background:#fff;color:var(--green-deep)" href="abonnements.html">Voir les formules</a>`;
+
+  // Activité
+  const done = ENROLLED.filter(e => e.progress === 100);
+  const got = done.filter(e => Certs.all()[e.id]).length;
+  $('stats').innerHTML = `<h3>Mon activité</h3>
+    <div class="kv"><span>Cours suivis</span><b>${ENROLLED.length}</b></div>
+    <div class="kv"><span>Cours terminés</span><b>${done.length}</b></div>
+    <div class="kv"><span>Certificats récupérés</span><b>${got} / ${done.length}</b></div>
+    <div class="kv" style="border:none"><span>Favoris</span><b>${Favs.get().length}</b></div>`;
+
+  // Certificats
+  $('certs').innerHTML = done.map(e => {
+    const c = courseById(e.id), info = Certs.all()[e.id];
+    return `<article class="ccert ${info ? '' : 'locked'}">
+      <div class="ccert-preview">${certHTML(c, e, info)}
+        ${info ? '' : `<div class="ccert-lock">${icon('lock')}<span>Certificat prêt à récupérer</span></div>`}</div>
+      <div class="ccert-foot">
+        <div><b>${c.title.split(':')[0].trim()}</b><small>Terminé le ${e.done}${info ? ' · N° ' + info.code : ''}</small></div>
+        <a class="btn ${info ? 'btn-soft' : 'btn-primary'} btn-sm" href="certificats.html">${info ? icon('download') + 'Télécharger' : 'Récupérer'}</a>
+      </div>
+    </article>`;
+  }).join('') || `<div class="empty"><div class="ico">${icon('award')}</div><h3>Pas encore de certificat</h3><p>Terminez un cours à 100 % pour obtenir votre premier certificat.</p><a class="btn btn-primary" href="mes-cours.html">Reprendre mes cours</a></div>`;
+</script>
+</body>
+</html>

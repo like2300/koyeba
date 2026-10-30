@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body class="auth-page">
+<script>try { if (localStorage.getItem('apprendo-theme') === 'dark') document.body.classList.add('dark'); } catch {}</script>
+
+<div class="auth">
+  <!-- Panneau de présentation -->
+  <aside class="auth-side">
+    <a class="auth-logo" href="connexion.html"><span class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg></span><span>Koy<b>eba</b></span></a>
+    <div class="auth-pitch">
+      <h2>Apprenez à votre rythme, où que vous soyez.</h2>
+      <p>Des cours en vidéo, en audio et en texte, des certificats reconnus et une communauté d'apprenants au Congo et partout en Afrique.</p>
+      <ul>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Plus de 16 cours, dont des cours gratuits</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Cours audio accessibles aux personnes aveugles</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Paiement en cauris ou par Mobile Money</li>
+      </ul>
+    </div>
+    <div class="auth-proof">
+      <div class="auth-faces">
+        <img src="https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?w=120&h=120&fit=crop&crop=faces&q=80" alt="">
+        <img src="https://images.unsplash.com/photo-1521119989659-a83eee488004?w=120&h=120&fit=crop&crop=faces&q=80" alt="">
+        <img src="https://images.unsplash.com/photo-1583994009785-37ec30bf9342?w=120&h=120&fit=crop&crop=faces&q=80" alt="">
+        <img src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=120&h=120&fit=crop&crop=faces&q=80" alt="">
+      </div>
+      <span><b>158 000 apprenants</b> nous ont déjà rejoints</span>
+    </div>
+  </aside>
+
+  <!-- Formulaires -->
+  <main class="auth-main">
+    <div class="auth-card">
+      <a class="auth-logo auth-logo-m" href="connexion.html"><span class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg></span><span>Koy<b>eba</b></span></a>
+      <h1 id="title">Créer votre compte</h1>
+      <p class="auth-sub" id="sub">Un compte est nécessaire pour suivre les cours. C'est gratuit.</p>
+
+      <div class="seg auth-tabs" role="tablist">
+        <button type="button" role="tab" data-mode="signup" class="active">Inscription</button>
+        <button type="button" role="tab" data-mode="signin">Connexion</button>
+      </div>
+
+      <button type="button" class="btn-google" id="googleBtn">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+        <span>Continuer avec Google</span>
+      </button>
+
+      <div class="auth-or"><span>ou avec votre e-mail</span></div>
+
+      <form id="form" novalidate>
+        <div class="two-col" id="names">
+          <div class="field"><label for="first">Prénom</label><input class="input" id="first" autocomplete="given-name" placeholder="Grâce"></div>
+          <div class="field"><label for="last">Nom</label><input class="input" id="last" autocomplete="family-name" placeholder="Mabiala"></div>
+        </div>
+        <div class="field"><label for="email">Adresse e-mail</label><input class="input" id="email" type="email" autocomplete="email" placeholder="vous@exemple.com"></div>
+        <div class="field">
+          <label for="pw">Mot de passe <button type="button" class="auth-link" id="forgot" hidden>Mot de passe oublié ?</button></label>
+          <div class="pw-wrap">
+            <input class="input" id="pw" type="password" autocomplete="new-password" placeholder="8 caractères minimum">
+            <button type="button" class="pw-eye" id="eye" aria-label="Afficher le mot de passe"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div class="pw-meter" id="meter"><span></span></div>
+        </div>
+        <label class="auth-check" id="termsRow"><input type="checkbox" id="terms"> J'accepte les conditions d'utilisation et la politique de confidentialité de Koyeba</label>
+        <p class="auth-error" id="err" role="alert" hidden></p>
+        <button class="btn btn-primary btn-block auth-submit" id="submit">Créer mon compte</button>
+      </form>
+
+      <p class="auth-switch" id="switch"></p>
+      <p class="auth-demo">Version de démonstration : le compte est gardé dans ce navigateur uniquement.</p>
+    </div>
+  </main>
+</div>
+
+<!-- Connexion Google simulée -->
+<div class="gsim" id="gsim" hidden>
+  <div class="gsim-box" role="dialog" aria-modal="true" aria-labelledby="gsimTitle">
+    <div class="gsim-bar"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg><span>Connexion avec Google</span><button type="button" class="gsim-x" id="gsimX" aria-label="Fermer">×</button></div>
+    <div class="gsim-body" id="gsimBody"></div>
+    <p class="gsim-note">Simulation : aucune donnée n'est envoyée à Google.</p>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  // Page d'arrivée après connexion : uniquement une page du site
+  const nextRaw = new URLSearchParams(location.search).get('next') || '';
+  const next = /^[\w-]+\.html([?#][^/]*)?$/.test(nextRaw) && !nextRaw.startsWith('connexion') ? nextRaw : 'index.html';
+  if (Auth.user()) location.replace(next);
+
+  let mode = 'signup';
+  const err = msg => { $('err').textContent = msg; $('err').hidden = !msg; };
+  function setMode(m) {
+    mode = m; err('');
+    document.querySelectorAll('.auth-tabs button').forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+    const up = m === 'signup';
+    $('title').textContent = up ? 'Créer votre compte' : 'Bon retour parmi nous';
+    $('sub').textContent = up ? 'Un compte est nécessaire pour suivre les cours. C\'est gratuit.' : 'Connectez-vous pour reprendre vos cours.';
+    $('names').hidden = $('termsRow').hidden = $('meter').hidden = !up;
+    $('forgot').hidden = up;
+    $('pw').autocomplete = up ? 'new-password' : 'current-password';
+    $('pw').placeholder = up ? '8 caractères minimum' : 'Votre mot de passe';
+    $('submit').textContent = up ? 'Créer mon compte' : 'Se connecter';
+    $('switch').innerHTML = up ? 'Déjà inscrit ? <button type="button" class="auth-link" data-to="signin">Se connecter</button>'
+                               : 'Pas encore de compte ? <button type="button" class="auth-link" data-to="signup">Créer un compte</button>';
+  }
+  document.querySelector('.auth-tabs').onclick = e => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); };
+  $('switch').onclick = e => { const b = e.target.closest('[data-to]'); if (b) setMode(b.dataset.to); };
+  $('forgot').onclick = () => err('Démo : la réinitialisation par e-mail sera disponible avec le vrai serveur. Créez un nouveau compte en attendant.');
+  setMode(new URLSearchParams(location.search).get('mode') === 'signin' ? 'signin' : 'signup');
+
+  // Mot de passe : afficher / force
+  $('eye').onclick = () => { $('pw').type = $('pw').type === 'password' ? 'text' : 'password'; };
+  $('pw').oninput = () => {
+    const v = $('pw').value;
+    const score = [v.length >= 8, /[A-Z]/.test(v) && /[a-z]/.test(v), /\d/.test(v), /[^\w\s]/.test(v) || v.length >= 12].filter(Boolean).length;
+    $('meter').dataset.score = v ? score : '';
+  };
+
+  const busy = (on, label) => { $('submit').disabled = on; if (label) $('submit').textContent = label; };
+  $('form').onsubmit = async e => {
+    e.preventDefault(); err('');
+    const email = $('email').value.trim(), pw = $('pw').value;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return err('Entrez une adresse e-mail valide.');
+    try {
+      if (mode === 'signup') {
+        if (!$('first').value.trim() || !$('last').value.trim()) return err('Indiquez votre prénom et votre nom.');
+        if (pw.length < 8) return err('Le mot de passe doit contenir au moins 8 caractères.');
+        if (!$('terms').checked) return err('Acceptez les conditions d\'utilisation pour continuer.');
+        busy(true, 'Création du compte…');
+        await Auth.signup({ first: $('first').value, last: $('last').value, email, password: pw });
+      } else {
+        if (!pw) return err('Entrez votre mot de passe.');
+        busy(true, 'Connexion…');
+        await Auth.signin(email, pw);
+      }
+      location.replace(next);
+    } catch (x) { busy(false); setMode(mode); err(x.message); }
+  };
+
+  // ---- Connexion Google simulée ----
+  const DEMO = { first: 'Alberto', last: 'Rossi', email: 'alberto.rossi@gmail.com', photo: 'https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?w=200&h=200&fit=crop&crop=faces&q=80' };
+  const gBody = $('gsimBody');
+  function gChoose() {
+    gBody.innerHTML = `<h2 id="gsimTitle">Choisissez un compte</h2><p>pour continuer vers <b>Koyeba</b></p>
+      <button type="button" class="gsim-acc" data-demo><img src="${DEMO.photo}" alt=""><span><b>${DEMO.first} ${DEMO.last}</b><small>${DEMO.email}</small></span></button>
+      <button type="button" class="gsim-acc" data-other><span class="gsim-plus">+</span><span><b>Utiliser un autre compte</b></span></button>`;
+  }
+  function gOther() {
+    gBody.innerHTML = `<h2 id="gsimTitle">Utiliser un autre compte</h2><p>pour continuer vers <b>Koyeba</b></p>
+      <form id="gForm" class="gsim-form" novalidate>
+        <div class="two-col"><input class="input" id="gFirst" placeholder="Prénom" autocomplete="given-name"><input class="input" id="gLast" placeholder="Nom" autocomplete="family-name"></div>
+        <input class="input" id="gEmail" type="email" placeholder="Adresse Gmail" autocomplete="email">
+        <p class="auth-error" id="gErr" hidden></p>
+        <div class="gsim-actions"><button type="button" class="auth-link" data-back>Retour</button><button class="btn btn-primary btn-sm">Continuer</button></div>
+      </form>`;
+    $('gFirst').focus();
+    $('gForm').onsubmit = e => {
+      e.preventDefault();
+      const f = $('gFirst').value.trim(), l = $('gLast').value.trim(), m = $('gEmail').value.trim();
+      if (!f || !l || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)) { $('gErr').textContent = 'Indiquez votre prénom, votre nom et une adresse valide.'; $('gErr').hidden = false; return; }
+      gDone({ first: f, last: l, email: m });
+    };
+  }
+  function gDone(acc) {
+    gBody.innerHTML = `<div class="gsim-wait"><span class="spin"></span><p>Connexion de <b>${acc.email.replace(/[<>&"]/g, '')}</b>…</p></div>`;
+    setTimeout(() => { Auth.google(acc); location.replace(next); }, 900);
+  }
+  gBody.onclick = e => {
+    if (e.target.closest('[data-demo]')) gDone(DEMO);
+    if (e.target.closest('[data-other]')) gOther();
+    if (e.target.closest('[data-back]')) gChoose();
+  };
+  const gOpen = on => { $('gsim').hidden = !on; if (on) { gChoose(); gBody.querySelector('button').focus(); } };
+  $('googleBtn').onclick = () => gOpen(true);
+  $('gsimX').onclick = () => gOpen(false);
+  $('gsim').onclick = e => { if (e.target === $('gsim')) gOpen(false); };
+  addEventListener('keydown', e => { if (e.key === 'Escape') gOpen(false); });
+</script>
+</body>
+</html>

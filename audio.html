@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cours audio accessibles – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="audio">
+<a class="skip-link" href="#nowPlaying">Aller directement au lecteur audio</a>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main audio-page" id="main">
+    <div class="topbar" id="topbar"></div>
+
+    <!-- En-tête de la playlist -->
+    <section class="pl-hero" aria-labelledby="plTitle">
+      <div class="pl-cover" aria-hidden="true">
+        <img id="cv1" alt=""><img id="cv2" alt=""><img id="cv3" alt=""><img id="cv4" alt="">
+        <span class="pl-cover-ico"><svg class="i"><use href="#i-headphones"/></svg></span>
+      </div>
+      <div class="pl-info">
+        <span class="pl-kicker">Playlist accessible</span>
+        <h1 id="plTitle">Cours audio</h1>
+        <p>Des cours entièrement lus à voix haute, pensés pour les personnes non-voyantes ou malvoyantes. Tout se contrôle au clavier.</p>
+        <p class="pl-meta" id="plMeta"></p>
+        <div class="pl-actions">
+          <button class="pl-play" id="bigPlay" aria-label="Lire la playlist"><svg class="i" aria-hidden="true"><use id="bigIco" href="#i-play"/></svg></button>
+          <button class="btn btn-ghost btn-sm" id="bigText" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-type"/></svg>Grand texte</button>
+          <button class="btn btn-ghost btn-sm" id="contrast" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-contrast"/></svg>Contraste élevé</button>
+          <button class="btn btn-ghost btn-sm" id="keysBtn" aria-expanded="false" aria-controls="keys"><svg class="i" aria-hidden="true"><use href="#i-keyboard"/></svg>Raccourcis</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card keys" id="keys" hidden aria-labelledby="keysTitle">
+      <h2 id="keysTitle" style="font-size:16px;margin-bottom:12px">Raccourcis clavier</h2>
+      <dl>
+        <div><dt><kbd>Espace</kbd> ou <kbd>K</kbd></dt><dd>Lecture / pause</dd></div>
+        <div><dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Phrase précédente / suivante</dd></div>
+        <div><dt><kbd>P</kbd> <kbd>N</kbd></dt><dd>Chapitre précédent / suivant</dd></div>
+        <div><dt><kbd>+</kbd> <kbd>-</kbd></dt><dd>Accélérer / ralentir la voix</dd></div>
+        <div><dt><kbd>R</kbd></dt><dd>Répéter la phrase en cours</dd></div>
+      </dl>
+      <p style="margin-top:12px;font-size:12px;color:var(--muted)">Si vous utilisez déjà un lecteur d'écran (NVDA, VoiceOver, TalkBack), mettez-le en pause pendant l'écoute pour ne pas entendre deux voix en même temps.</p>
+    </section>
+
+    <div class="pl-grid">
+      <div>
+        <!-- Liste des cours (pistes) -->
+        <section aria-labelledby="tracksTitle">
+          <h2 class="pl-h" id="tracksTitle">Tous les cours audio</h2>
+          <div class="tracks" role="list" id="tracks"></div>
+        </section>
+
+        <!-- Chapitres du cours en cours -->
+        <section aria-labelledby="chTitle" style="margin-top:30px">
+          <h2 class="pl-h" id="chTitle"></h2>
+          <div class="tracks chapters-tracks" role="list" id="chapters"></div>
+        </section>
+      </div>
+
+      <!-- Ce qui est lu en ce moment -->
+      <aside class="lyrics" aria-labelledby="lyTitle">
+        <div class="ly-head">
+          <h2 id="lyTitle">En cours de lecture</h2>
+          <a id="aVideo" class="link-btn" hidden></a>
+        </div>
+        <p class="ly-chapter" id="aChapter"></p>
+        <p class="ly-now" id="aSentence"></p>
+        <h3 class="ly-sub">Transcription</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Cliquez sur une phrase pour reprendre la lecture à cet endroit.</p>
+        <div class="transcript" id="transcript"></div>
+      </aside>
+    </div>
+
+    <p class="ap-warning" id="noVoice" hidden>Votre navigateur ne permet pas la lecture à voix haute. Essayez avec Chrome, Edge, Safari ou Firefox à jour.</p>
+    <p class="sr-only" aria-live="polite" id="announce"></p>
+  </main>
+</div>
+
+<!-- Barre de lecture fixe en bas -->
+<section class="now-bar" id="nowPlaying" tabindex="-1" aria-label="Lecteur audio">
+  <div class="nb-track">
+    <img id="nbCover" alt="">
+    <div><b id="nbTitle"></b><small id="nbSub"></small></div>
+  </div>
+  <div class="nb-center">
+    <div class="nb-controls" role="group" aria-label="Commandes de lecture">
+      <button class="nb-btn" id="prevCh" aria-label="Chapitre précédent" title="Chapitre précédent (P)"><svg class="i" aria-hidden="true"><use href="#i-skipback"/></svg></button>
+      <button class="nb-btn" id="prevS" aria-label="Phrase précédente" title="Phrase précédente (←)"><svg class="i" aria-hidden="true"><use href="#i-back"/></svg></button>
+      <button class="nb-play" id="playBtn" aria-label="Lecture" title="Lecture / pause (Espace)"><svg class="i" aria-hidden="true"><use id="playIco" href="#i-play"/></svg></button>
+      <button class="nb-btn" id="nextS" aria-label="Phrase suivante" title="Phrase suivante (→)"><svg class="i" aria-hidden="true"><use href="#i-fwd"/></svg></button>
+      <button class="nb-btn" id="nextCh" aria-label="Chapitre suivant" title="Chapitre suivant (N)"><svg class="i" aria-hidden="true"><use href="#i-skipfwd"/></svg></button>
+    </div>
+    <div class="nb-progress">
+      <span id="tCur">0:00</span>
+      <div class="progress" role="progressbar" aria-label="Progression du chapitre" aria-valuemin="0" aria-valuemax="100" id="aBar"><span id="aFill"></span></div>
+      <span id="tTot">0:00</span>
+    </div>
+  </div>
+  <div class="nb-settings">
+    <label><span class="sr-only">Vitesse de la voix</span>
+      <select class="select" id="rate" title="Vitesse de la voix">
+        <option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.25">1,25×</option><option value="1.5">1,5×</option><option value="2">2×</option>
+      </select></label>
+    <label><span class="sr-only">Voix</span>
+      <select class="select" id="voice" title="Voix"><option value="">Voix par défaut</option></select></label>
+  </div>
+</section>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const synth = window.speechSynthesis;
+  const split = t => t.match(/[^.!?]+[.!?]*/g).map(s => s.trim()).filter(Boolean);
+  const words = s => s.split(/\s+/).length;
+  const secs = s => Math.max(2, Math.round(words(s) / 150 * 60));   // durée estimée d'une phrase à 1×
+  const mmss = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('apprendo-audio')) || {}; } catch {}
+  const save = () => { try { localStorage.setItem('apprendo-audio', JSON.stringify(saved)); } catch {} };
+
+  let a = AUDIO_COURSES.find(x => x.id === params.get('id')) || AUDIO_COURSES[0];
+  let ci = 0, si = 0, playing = false, token = 0, sentences = [];
+  const sentencesOf = (course, i) => {
+    const t = course.chapters[i].title;
+    return [`Chapitre ${i + 1}. ${t}${/[.!?]$/.test(t) ? '' : '.'}`, ...split(course.chapters[i].text)];
+  };
+  const chapterSecs = (course, i) => sentencesOf(course, i).reduce((t, s) => t + secs(s), 0);
+  const courseSecs = course => course.chapters.reduce((t, _, i) => t + chapterSecs(course, i), 0);
+  const announce = msg => { $('announce').textContent = ''; setTimeout(() => $('announce').textContent = msg, 50); };
+
+  // ---- En-tête de la playlist ----
+  ['cv1', 'cv2', 'cv3', 'cv4'].forEach((id, i) => $(id).src = IMG(AUDIO_COURSES[i].img, 200));
+  const totalSecs = AUDIO_COURSES.reduce((t, x) => t + courseSecs(x), 0);
+  $('plMeta').innerHTML = `<b>Koyeba</b> · ${AUDIO_COURSES.length} cours · ${AUDIO_COURSES.reduce((n, x) => n + x.chapters.length, 0)} chapitres · environ ${Math.round(totalSecs / 60)} min`;
+
+  // ---- Pistes : les cours ----
+  function renderTracks() {
+    $('tracks').innerHTML = AUDIO_COURSES.map((x, i) => {
+      const cur = x.id === a.id, s = saved[x.id];
+      return `<div class="track ${cur ? 'current' : ''} ${cur && playing ? 'playing' : ''}" role="listitem">
+        <button class="track-btn" data-id="${x.id}" aria-label="${cur && playing ? 'Pause' : 'Écouter'} : ${x.title}">
+          <span class="t-num"><span class="n">${i + 1}</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><svg class="i t-play" aria-hidden="true"><use href="#i-${cur && playing ? 'pause' : 'play'}"/></svg></span>
+          <img src="${IMG(x.img, 120)}" alt="">
+          <span class="t-main"><b>${x.title}</b><small>${teacherById(x.teacher).name}${s && (s.ci || s.si) ? ` · reprise au chapitre ${s.ci + 1}` : ''}</small></span>
+          <span class="t-col">${LEVELS[x.level]}</span>
+          <span class="t-col">${x.chapters.length} chapitres</span>
+          <span class="t-dur">${mmss(courseSecs(x))}</span>
+        </button>
+      </div>`;
+    }).join('');
+  }
+
+  // ---- Pistes : les chapitres du cours en cours ----
+  function renderChapters() {
+    $('chTitle').textContent = `Chapitres · ${a.title}`;
+    $('chapters').innerHTML = a.chapters.map((ch, k) => {
+      const cur = k === ci;
+      return `<div class="track ${cur ? 'current' : ''} ${cur && playing ? 'playing' : ''}" role="listitem">
+        <button class="track-btn" data-ch="${k}" ${cur ? 'aria-current="true"' : ''} aria-label="Chapitre ${k + 1} : ${ch.title}">
+          <span class="t-num"><span class="n">${k + 1}</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><svg class="i t-play" aria-hidden="true"><use href="#i-play"/></svg></span>
+          <span class="t-main"><b>${ch.title}</b><small>${ch.text.split('.')[0]}.</small></span>
+          <span class="t-dur">${mmss(chapterSecs(a, k))}</span>
+        </button>
+      </div>`;
+    }).join('');
+  }
+
+  function loadCourse(course, autoplay = false) {
+    stop();
+    a = course;
+    ({ ci, si } = saved[a.id] || { ci: 0, si: 0 });
+    const linked = a.course && courseById(a.course);
+    $('aVideo').hidden = !linked;
+    if (linked) { $('aVideo').href = `cours-detail.html?id=${linked.id}`; $('aVideo').textContent = 'Voir le cours vidéo →'; }
+    $('nbCover').src = IMG(a.img, 120);
+    history.replaceState(null, '', 'audio.html?id=' + a.id);
+    document.title = `${a.title} – Cours audio – Koyeba`;
+    setChapter(ci, si);
+    renderTracks();
+    if (autoplay) play();
+  }
+
+  function setChapter(i, s = 0) {
+    ci = Math.max(0, Math.min(i, a.chapters.length - 1));
+    sentences = sentencesOf(a, ci);
+    si = Math.max(0, Math.min(s, sentences.length - 1));
+    $('transcript').innerHTML = sentences.map((x, k) => `<span data-s="${k}">${x}</span>`).join(' ');
+    renderChapters();
+    update();
+  }
+
+  function update() {
+    $('nbTitle').textContent = a.title;
+    $('nbSub').textContent = `Chapitre ${ci + 1} sur ${a.chapters.length} · ${a.chapters[ci].title}`;
+    $('aChapter').textContent = `${a.title} · Chapitre ${ci + 1} : ${a.chapters[ci].title}`;
+    $('aSentence').textContent = sentences[si];
+    document.querySelectorAll('#transcript span').forEach((el, k) => el.classList.toggle('cur', k === si));
+    const rate = +$('rate').value;
+    const tot = chapterSecs(a, ci) / rate;
+    const done = sentences.slice(0, si).reduce((t, x) => t + secs(x), 0) / rate;
+    $('tCur').textContent = mmss(done);
+    $('tTot').textContent = mmss(tot);
+    const p = Math.round(done / tot * 100);
+    $('aFill').style.width = p + '%';
+    $('aBar').setAttribute('aria-valuenow', p);
+    saved[a.id] = { ci, si };
+    save();
+  }
+
+  function setPlayUI() {
+    $('playIco').setAttribute('href', playing ? '#i-pause' : '#i-play');
+    $('bigIco').setAttribute('href', playing ? '#i-pause' : '#i-play');
+    $('playBtn').setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
+    $('bigPlay').setAttribute('aria-label', playing ? 'Mettre en pause' : 'Lire la playlist');
+    document.body.classList.toggle('is-playing', playing);
+    renderTracks(); renderChapters();
+  }
+
+  // ---- Synthèse vocale : une phrase à la fois ----
+  function speak() {
+    if (!synth) return;
+    const my = ++token;
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(sentences[si]);
+    u.lang = 'fr-FR';
+    u.rate = +$('rate').value;
+    const v = synth.getVoices().find(v => v.name === $('voice').value);
+    if (v) { u.voice = v; u.lang = v.lang; }
+    u.onend = () => {
+      if (my !== token || !playing) return;
+      if (si < sentences.length - 1) { si++; update(); speak(); }
+      else if (ci < a.chapters.length - 1) { setChapter(ci + 1); speak(); }
+      else {
+        // Fin du cours : on enchaîne sur le cours suivant de la playlist
+        const next = AUDIO_COURSES[AUDIO_COURSES.indexOf(a) + 1];
+        saved[a.id] = { ci: 0, si: 0 }; save();
+        if (next) { announce('Cours suivant : ' + next.title); saved[next.id] = { ci: 0, si: 0 }; loadCourse(next, true); }
+        else { stop(); announce('Fin de la playlist. Bravo !'); }
+      }
+    };
+    synth.speak(u);
+  }
+  function play() { if (!synth) return; playing = true; setPlayUI(); speak(); }
+  function stop() { playing = false; token++; synth?.cancel(); setPlayUI(); }
+  const toggle = () => { playing ? (stop(), announce('Pause')) : play(); };
+  const goSentence = d => {
+    const n = si + d;
+    if (n < 0 && ci > 0) setChapter(ci - 1, 999);
+    else if (n >= sentences.length && ci < a.chapters.length - 1) setChapter(ci + 1);
+    else { si = Math.max(0, Math.min(n, sentences.length - 1)); update(); }
+    if (playing) speak();
+  };
+  const goChapter = d => {
+    const n = ci + d;
+    if (n < 0 || n >= a.chapters.length) return announce(d < 0 ? 'Premier chapitre' : 'Dernier chapitre');
+    setChapter(n);
+    announce(`Chapitre ${n + 1} : ${a.chapters[n].title}`);
+    if (playing) speak();
+  };
+  const changeRate = d => {
+    const sel = $('rate');
+    sel.selectedIndex = Math.max(0, Math.min(sel.options.length - 1, sel.selectedIndex + d));
+    announce('Vitesse ' + sel.options[sel.selectedIndex].text);
+    update();
+    if (playing) speak();
+  };
+
+  // ---- Événements ----
+  $('playBtn').onclick = toggle;
+  $('bigPlay').onclick = toggle;
+  $('prevS').onclick = () => goSentence(-1);
+  $('nextS').onclick = () => goSentence(1);
+  $('prevCh').onclick = () => goChapter(-1);
+  $('nextCh').onclick = () => goChapter(1);
+  $('rate').onchange = () => { update(); if (playing) speak(); };
+  $('voice').onchange = () => { if (playing) speak(); };
+  $('tracks').onclick = e => {
+    const b = e.target.closest('[data-id]');
+    if (!b) return;
+    const course = AUDIO_COURSES.find(x => x.id === b.dataset.id);
+    if (course.id === a.id) return toggle();
+    loadCourse(course, true);
+    announce('Cours : ' + course.title);
+  };
+  $('chapters').onclick = e => {
+    const b = e.target.closest('[data-ch]');
+    if (!b) return;
+    if (+b.dataset.ch === ci) return toggle();
+    setChapter(+b.dataset.ch);
+    play();
+  };
+  $('transcript').onclick = e => { const s = e.target.closest('[data-s]'); if (s) { si = +s.dataset.s; update(); play(); } };
+
+  document.addEventListener('keydown', e => {
+    const tag = e.target.tagName;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag) || e.ctrlKey || e.metaKey || e.altKey) return;
+    if ($('assist') && !$('assist').hidden) return;
+    const k = e.key.toLowerCase();
+    if ((k === ' ' && tag !== 'BUTTON' && tag !== 'A') || k === 'k') { e.preventDefault(); toggle(); }
+    else if (k === 'arrowleft' || k === 'j') { e.preventDefault(); goSentence(-1); }
+    else if (k === 'arrowright' || k === 'l') { e.preventDefault(); goSentence(1); }
+    else if (k === 'n') goChapter(1);
+    else if (k === 'p') goChapter(-1);
+    else if (k === '+' || k === '=') changeRate(1);
+    else if (k === '-') changeRate(-1);
+    else if (k === 'r') { if (playing) speak(); else play(); }
+  });
+
+  // ---- Voix disponibles (françaises en premier) ----
+  function loadVoices() {
+    const voices = synth.getVoices();
+    const fr = voices.filter(v => v.lang.toLowerCase().startsWith('fr'));
+    const others = voices.filter(v => !v.lang.toLowerCase().startsWith('fr'));
+    const current = $('voice').value;
+    const short = v => v.name.replace(/^Microsoft |^Google /, '').replace(/ - .*$/, '').replace(/ Online.*$/, '');
+    $('voice').innerHTML = '<option value="">Voix par défaut</option>' +
+      fr.map(v => `<option value="${v.name}">${short(v)} (${v.lang})</option>`).join('') +
+      (others.length ? `<optgroup label="Autres langues">${others.map(v => `<option value="${v.name}">${short(v)} (${v.lang})</option>`).join('')}</optgroup>` : '');
+    $('voice').value = current || (fr[0]?.name ?? '');
+  }
+  if (synth) { loadVoices(); synth.onvoiceschanged = loadVoices; }
+  else { $('noVoice').hidden = false; document.querySelectorAll('.nb-controls button, #bigPlay').forEach(b => b.disabled = true); }
+
+  // ---- Options d'accessibilité (partagées avec tout le site) ----
+  const syncA11y = () => {
+    $('bigText').setAttribute('aria-pressed', document.body.classList.contains('a11y-big'));
+    $('contrast').setAttribute('aria-pressed', document.body.classList.contains('a11y-hc'));
+  };
+  $('bigText').onclick = () => { setA11y('big', !document.body.classList.contains('a11y-big')); syncA11y(); };
+  $('contrast').onclick = () => { setA11y('hc', !document.body.classList.contains('a11y-hc')); syncA11y(); };
+  $('keysBtn').onclick = () => {
+    const open = $('keys').hidden;
+    $('keys').hidden = !open;
+    $('keysBtn').setAttribute('aria-expanded', open);
+  };
+  syncA11y();
+
+  window.addEventListener('beforeunload', () => synth?.cancel());
+  loadCourse(a);
+</script>
+</body>
+</html>

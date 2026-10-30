@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catégories – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="categories">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › Catégories</div>
+      <h1>Catégories</h1>
+      <p>Choisissez un domaine, puis affinez avec les filtres pour trouver le bon cours.</p>
+    </div>
+
+    <div class="catalog left">
+      <!-- Filtre fixe à gauche -->
+      <aside class="filters from-left" id="filters">
+        <div class="filters-head">
+          <h3><svg class="i"><use href="#i-filter"/></svg>Filtrer</h3>
+          <div>
+            <button class="link-btn" id="clearAll">Effacer</button>
+            <button class="close-filters" id="closeFilters" aria-label="Fermer"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+        </div>
+        <label class="conv-search" style="margin-bottom:12px"><svg class="i"><use href="#i-search"/></svg><input id="q" placeholder="Mot-clé, formateur…"></label>
+        <div id="groups"></div>
+      </aside>
+
+      <div class="results">
+        <div class="cat-grid compact" id="cats"></div>
+
+        <div class="toolbar" style="margin-top:30px">
+          <span class="count" id="count"></span>
+          <button class="btn btn-ghost btn-sm filter-toggle" id="openFilters"><svg class="i"><use href="#i-filter"/></svg>Filtres</button>
+          <select class="select" id="sort" aria-label="Trier par">
+            <option value="pertinence">Les plus pertinents</option>
+            <option value="populaires">Les plus populaires</option>
+            <option value="notes">Les mieux notés</option>
+            <option value="prix-asc">Prix croissant</option>
+            <option value="prix-desc">Prix décroissant</option>
+          </select>
+        </div>
+        <div class="active-filters" id="chips"></div>
+        <div class="grid-cards" id="grid"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const DURATIONS = [
+    { id: 'd1', label: '0 à 2 heures', min: 0, max: 2 },
+    { id: 'd2', label: '3 à 10 heures', min: 2.01, max: 10 },
+    { id: 'd3', label: '11 à 20 heures', min: 10.01, max: 20 },
+    { id: 'd4', label: 'Plus de 20 heures', min: 20.01, max: Infinity }
+  ];
+  const GROUPS = [
+    { key: 'cat', title: 'Catégorie', type: 'checkbox',
+      options: CATEGORIES.map(c => ({ id: c.id, label: c.name })), test: (c, v) => c.cat === v },
+    { key: 'level', title: 'Niveau', type: 'checkbox',
+      options: Object.entries(LEVELS).map(([id, label]) => ({ id, label })), test: (c, v) => c.level === v },
+    { key: 'price', title: 'Prix', type: 'checkbox',
+      options: [{ id: 'gratuit', label: 'Gratuit' }, { id: 'payant', label: 'Payant' }],
+      test: (c, v) => v === 'gratuit' ? c.price === 0 : c.price > 0 },
+    { key: 'rating', title: 'Note minimum', type: 'radio',
+      options: [4.5, 4.0, 3.5].map(v => ({ id: String(v), label: `${starsHTML(v)} ${v.toFixed(1).replace('.', ',')} et plus` })),
+      test: (c, v) => c.rating >= +v },
+    { key: 'duration', title: 'Durée', type: 'checkbox',
+      options: DURATIONS.map(d => ({ id: d.id, label: d.label })),
+      test: (c, v) => { const d = DURATIONS.find(x => x.id === v); return c.hours >= d.min && c.hours <= d.max; } },
+    { key: 'lang', title: 'Langue', type: 'checkbox',
+      options: ['Français', 'Anglais'].map(l => ({ id: l, label: l })), test: (c, v) => c.lang === v }
+  ];
+
+  const state = {};
+  GROUPS.forEach(g => state[g.key] = new Set());
+  if (params.get('cat')) state.cat.add(params.get('cat'));
+  const open = new Set(GROUPS.map(g => g.key));
+
+  const query = () => $('q').value.trim().toLowerCase();
+  const passQuery = c => !query() || (c.title + ' ' + c.subtitle + ' ' + teacherById(c.teacher).name).toLowerCase().includes(query());
+  const passGroup = (c, g) => state[g.key].size === 0 || [...state[g.key]].some(v => g.test(c, v));
+  const passAll = (c, except) => passQuery(c) && GROUPS.every(g => g.key === except || passGroup(c, g));
+
+  // ---- Vignettes de catégories (cliquer = filtrer) ----
+  function renderCats() {
+    $('cats').innerHTML = CATEGORIES.map(cat => {
+      const n = COURSES.filter(c => c.cat === cat.id).length;
+      const on = state.cat.has(cat.id);
+      return `<button class="cat-tile ${on ? 'selected' : ''}" data-cat="${cat.id}" aria-pressed="${on}">
+        <img src="${IMG(cat.img, 500)}" alt="" loading="lazy">
+        ${on ? `<span class="tile-check">${icon('check')}</span>` : ''}
+        <span class="txt"><h3>${cat.name}</h3><p><span>${n} cours</span>${icon(on ? 'x' : 'plus')}</p></span>
+      </button>`;
+    }).join('');
+  }
+
+  // ---- Filtre ----
+  function renderGroups() {
+    $('groups').innerHTML = GROUPS.map(g => {
+      const pool = COURSES.filter(c => passAll(c, g.key));
+      return `<details class="fgroup" data-key="${g.key}" ${open.has(g.key) ? 'open' : ''}>
+        <summary>${g.title}<svg class="i"><use href="#i-chevron"/></svg></summary>
+        ${g.options.map(o => {
+          const n = pool.filter(c => g.test(c, o.id)).length;
+          const checked = state[g.key].has(o.id);
+          return `<label class="fopt ${n === 0 && !checked ? 'disabled' : ''}">
+            <input type="${g.type}" name="${g.key}" value="${o.id}" ${checked ? 'checked' : ''}>
+            <span>${o.label}</span><span class="n">(${n})</span></label>`;
+        }).join('')}
+      </details>`;
+    }).join('');
+  }
+
+  function renderResults() {
+    const by = $('sort').value;
+    const fns = {
+      pertinence: (a, b) => (b.best - a.best) || b.rating - a.rating,
+      populaires: (a, b) => b.students - a.students,
+      notes: (a, b) => b.rating - a.rating || b.reviews - a.reviews,
+      'prix-asc': (a, b) => a.price - b.price,
+      'prix-desc': (a, b) => b.price - a.price
+    };
+    const list = COURSES.filter(c => passAll(c)).sort(fns[by]);
+    $('count').textContent = `${list.length} cours`;
+    $('grid').style.display = list.length ? '' : 'block';
+    $('grid').innerHTML = list.map(c => courseCard(c)).join('') || `<div class="empty">
+      <div class="ico"><svg class="i"><use href="#i-search"/></svg></div>
+      <h3>Aucun cours ne correspond</h3><p>Retirez quelques filtres pour voir plus de résultats.</p>
+      <button class="btn btn-primary" onclick="clearAll()">Effacer les filtres</button></div>`;
+  }
+
+  function renderChips() {
+    const chips = [];
+    if (query()) chips.push(`<span class="chip">« ${query().replace(/</g, '&lt;')} »<button data-chip="q" aria-label="Retirer">${icon('x')}</button></span>`);
+    GROUPS.forEach(g => state[g.key].forEach(v => {
+      const label = g.key === 'rating' ? `${v.replace('.', ',')} et plus` : g.options.find(o => o.id === v).label;
+      chips.push(`<span class="chip">${label}<button data-chip="${g.key}:${v}" aria-label="Retirer">${icon('x')}</button></span>`);
+    }));
+    $('chips').innerHTML = chips.join('');
+  }
+
+  function refresh() { renderCats(); renderGroups(); renderResults(); renderChips(); }
+  function clearAll() { GROUPS.forEach(g => state[g.key].clear()); $('q').value = ''; refresh(); }
+
+  // ---- Événements ----
+  $('cats').onclick = e => {
+    const t = e.target.closest('[data-cat]');
+    if (!t) return;
+    const id = t.dataset.cat;
+    state.cat.has(id) ? state.cat.delete(id) : state.cat.add(id);
+    refresh();
+  };
+  $('groups').addEventListener('toggle', e => {
+    const k = e.target.dataset.key;
+    if (k) e.target.open ? open.add(k) : open.delete(k);
+  }, true);
+  $('groups').addEventListener('mousedown', e => {
+    const r = e.target.closest('label')?.querySelector('input[type=radio]');
+    if (r) r.dataset.was = r.checked ? '1' : '0';
+  });
+  $('groups').addEventListener('click', e => {
+    const r = e.target.closest('input[type=radio]');
+    if (r && r.dataset.was === '1') { state.rating.clear(); refresh(); }
+  });
+  $('groups').addEventListener('change', e => {
+    const { name, value, type, checked } = e.target;
+    if (type === 'radio') state[name] = new Set([value]);
+    else checked ? state[name].add(value) : state[name].delete(value);
+    refresh();
+  });
+  $('chips').onclick = e => {
+    const b = e.target.closest('[data-chip]');
+    if (!b) return;
+    if (b.dataset.chip === 'q') $('q').value = '';
+    else { const [k, v] = b.dataset.chip.split(':'); state[k].delete(v); }
+    refresh();
+  };
+  $('q').oninput = () => { renderGroups(); renderResults(); renderChips(); };
+  $('sort').onchange = renderResults;
+  $('clearAll').onclick = clearAll;
+  $('openFilters').onclick = () => { $('filters').classList.add('open'); document.querySelector('.overlay').classList.add('show'); };
+  $('closeFilters').onclick = closePanels;
+
+  refresh();
+</script>
+</body>
+</html>

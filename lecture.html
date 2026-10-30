@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lecture du cours – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="lecture">
+<div class="app wide">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="lec-head">
+      <a class="btn btn-ghost btn-sm" id="backLink"><svg class="i"><use href="#i-left"/></svg>Retour au cours</a>
+      <div class="lec-title">
+        <h1 id="courseTitle"></h1>
+        <p id="courseBy"></p>
+      </div>
+      <div class="lec-progress">
+        <div class="ring" id="ring"><span id="ringTxt"></span></div>
+        <div><b id="progTxt"></b><small>leçons terminées</small></div>
+        <a class="btn btn-primary btn-sm" href="certificats.html" id="certBtn" hidden><svg class="i"><use href="#i-award"/></svg>Mon certificat</a>
+      </div>
+    </div>
+
+    <div class="lec-grid">
+      <section class="lec-main">
+        <div class="viewer" id="viewer"></div>
+
+        <div class="lesson-bar">
+          <div>
+            <span class="type-chip" id="typeChip"></span>
+            <h2 id="lessonTitle"></h2>
+            <p id="lessonMeta"></p>
+          </div>
+          <div class="lesson-nav">
+            <button class="btn btn-ghost btn-sm" id="prevBtn"><svg class="i"><use href="#i-left"/></svg>Précédente</button>
+            <button class="btn btn-soft btn-sm" id="doneBtn"></button>
+            <button class="btn btn-primary btn-sm" id="nextBtn">Suivante<svg class="i"><use href="#i-arrow"/></svg></button>
+          </div>
+        </div>
+
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-tab="about">À propos</button>
+          <button class="tab" data-tab="notes">Mes notes</button>
+          <button class="tab" data-tab="res">Ressources</button>
+        </div>
+        <div id="tabAbout" class="prose"></div>
+        <div id="tabNotes" hidden>
+          <textarea class="input" id="notes" placeholder="Prenez des notes sur cette leçon… Elles sont enregistrées automatiquement."></textarea>
+          <p class="hint" id="notesSaved" style="font-size:12px;color:var(--muted);margin-top:6px"></p>
+        </div>
+        <div id="tabRes" hidden></div>
+      </section>
+
+      <aside class="lec-side">
+        <div class="lec-side-head">
+          <h3>Contenu du cours</h3>
+          <span id="sideCount"></span>
+        </div>
+        <div id="curriculum"></div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const SAMPLE_VIDEO = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+  const c = courseById(params.get('id')) || COURSES[0];
+  const t = teacherById(c.teacher);
+  const sections = buildCurriculum(c);
+  const lessons = sections.flatMap(s => s.lessons);
+  let st = Learn.get(c.id);
+  // Accès : cours gratuit, inclus dans l'abonnement, ou déjà acheté
+  if (!st.enrolled) {
+    if (c.price > 0 && !Sub.includesCourse(c)) { location.replace(`cours-detail.html?id=${c.id}`); throw new Error('Cours non acheté'); }
+    Learn.enroll(c.id); st = Learn.get(c.id);
+  }
+  let cur = lessons.find(l => l.id === (params.get('lecon') || st.last)) || lessons[0];
+
+  document.title = `${c.title} – Lecture – Koyeba`;
+  $('courseTitle').textContent = c.title;
+  $('courseBy').textContent = `${t.name} · ${LEVELS[c.level]} · ${c.lang}`;
+  $('backLink').href = `cours-detail.html?id=${c.id}`;
+
+  const save = () => { st.last = cur.id; st.lastDate = new Date().toISOString().slice(0, 10); Learn.set(c.id, st); };
+  const isDone = l => st.done.includes(l.id);
+  function markDone(l = cur, on = true) {
+    const had = isDone(l);
+    if (on && !had) st.done.push(l.id);
+    if (!on) st.done = st.done.filter(x => x !== l.id);
+    save();
+    renderSide(); renderProgress(); renderBar();
+    if (on && !had && st.done.length === lessons.length) toast('Bravo ! Vous avez terminé le cours, votre certificat est disponible.');
+    else if (on && !had) toast('Leçon terminée');
+  }
+
+  // ---- Progression ----
+  function renderProgress() {
+    const n = st.done.length, p = Math.round(n / lessons.length * 100);
+    $('ring').style.setProperty('--p', p);
+    $('ringTxt').textContent = p + ' %';
+    $('progTxt').textContent = `${n} / ${lessons.length}`;
+    $('certBtn').hidden = p < 100;
+  }
+
+  // ---- Programme (colonne de droite) ----
+  function renderSide() {
+    $('sideCount').textContent = `${st.done.length}/${lessons.length}`;
+    $('curriculum').innerHTML = sections.map((s, i) => {
+      const doneIn = s.lessons.filter(isDone).length;
+      return `<details class="lsec" ${s.lessons.some(l => l.id === cur.id) ? 'open' : ''}>
+        <summary><span><b>Section ${i + 1} : ${s.title}</b><small>${doneIn}/${s.lessons.length} · ${s.lessons.reduce((m, l) => m + l.min, 0)} min</small></span><svg class="i"><use href="#i-chevron"/></svg></summary>
+        ${s.lessons.map(l => `
+          <button class="litem ${l.id === cur.id ? 'current' : ''}" data-l="${l.id}">
+            <span class="chk ${isDone(l) ? 'on' : ''}" data-toggle="${l.id}" role="checkbox" aria-checked="${isDone(l)}" aria-label="Marquer comme terminée">${isDone(l) ? icon('check') : ''}</span>
+            <span class="lt"><span>${l.title}</span><small>${icon(LESSON_TYPES[l.type].icon)}${LESSON_TYPES[l.type].label} · ${l.min} min</small></span>
+          </button>`).join('')}
+      </details>`;
+    }).join('');
+  }
+
+  // ---- Barre de la leçon ----
+  function renderBar() {
+    const i = lessons.indexOf(cur);
+    $('typeChip').innerHTML = `${icon(LESSON_TYPES[cur.type].icon)}${LESSON_TYPES[cur.type].label}`;
+    $('lessonTitle').textContent = cur.title;
+    $('lessonMeta').textContent = `Section ${cur.section + 1} · Leçon ${i + 1} sur ${lessons.length} · ${cur.min} min`;
+    $('prevBtn').disabled = i === 0;
+    $('nextBtn').disabled = i === lessons.length - 1;
+    $('doneBtn').innerHTML = isDone(cur) ? `${icon('check')}Terminée` : 'Marquer comme terminée';
+    $('doneBtn').classList.toggle('btn-primary', isDone(cur));
+    $('doneBtn').classList.toggle('btn-soft', !isDone(cur));
+  }
+
+  // ---- Contenus d'exemple selon le type de leçon ----
+  const learn = LEARN[c.cat];
+  const articleText = () => `Dans cette leçon, nous faisons le point sur ${SECTION_NAMES[cur.section].toLowerCase()}. ${c.subtitle} L'objectif est simple : ${learn[cur.section % learn.length].toLowerCase()}. Prenez le temps de lire chaque partie, puis passez au quiz pour vérifier vos acquis.`;
+
+  function quizQuestions() {
+    const others = Object.entries(LEARN).filter(([k]) => k !== c.cat).map(([, v]) => v);
+    const pick = (arr, n) => arr[n % arr.length];
+    return [0, 1, 2].map(q => {
+      const good = pick(learn, cur.section + q);
+      const opts = [good, pick(others[(q + cur.section) % others.length], q), pick(others[(q + cur.section + 3) % others.length], q + 2)];
+      const order = [[0, 1, 2], [1, 0, 2], [2, 1, 0]][q];
+      return { q: q === 0 ? 'Lequel de ces objectifs fait partie de ce cours ?' : q === 1 ? 'Quelle compétence travaille-t-on dans cette section ?' : 'Laquelle de ces affirmations correspond au programme ?',
+        opts: order.map(o => opts[o]), answer: order.indexOf(0) };
+    });
+  }
+
+  function renderViewer() {
+    speechSynthesis?.cancel();
+    const v = $('viewer');
+    v.className = 'viewer type-' + cur.type;
+    const doneLabel = isDone(cur) ? 'Déjà terminée' : '';
+
+    if (cur.type === 'video') {
+      v.innerHTML = `<video controls preload="metadata" poster="${IMG(c.img, 1200)}" src="${SAMPLE_VIDEO}"></video>
+        <p class="viewer-note">Vidéo d'exemple · la vraie vidéo de la leçon s'affichera ici.</p>`;
+      v.querySelector('video').onended = () => markDone();
+    }
+
+    else if (cur.type === 'audio') {
+      const text = articleText();
+      v.innerHTML = `<div class="v-audio">
+        <img src="${IMG(c.img, 400)}" alt="">
+        <div>
+          <span class="tag">Leçon audio</span>
+          <h3>${cur.title}</h3>
+          <p>Cette leçon est lue à voix haute. Idéale en déplacement ou pour les personnes non-voyantes.</p>
+          <div class="v-audio-ctrl">
+            <button class="ctrl main" id="speak" aria-label="Écouter"><svg class="i"><use id="speakIco" href="#i-play"/></svg></button>
+            <select class="select" id="speakRate" aria-label="Vitesse"><option value="0.8">0,8×</option><option value="1" selected>1×</option><option value="1.3">1,3×</option><option value="1.6">1,6×</option></select>
+          </div>
+          <p class="v-audio-text">${text}</p>
+        </div></div>`;
+      let on = false;
+      $('speak').onclick = () => {
+        if (!window.speechSynthesis) return toast('La lecture vocale n\'est pas disponible dans ce navigateur');
+        if (on) { speechSynthesis.cancel(); on = false; $('speakIco').setAttribute('href', '#i-play'); return; }
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'fr-FR'; u.rate = +$('speakRate').value;
+        u.onend = () => { if (!on) return; on = false; $('speakIco').setAttribute('href', '#i-play'); markDone(); };
+        speechSynthesis.cancel(); speechSynthesis.speak(u);
+        on = true; $('speakIco').setAttribute('href', '#i-pause');
+      };
+    }
+
+    else if (cur.type === 'article') {
+      v.innerHTML = `<article class="v-article">
+        <h3>${cur.title}</h3>
+        <p>${articleText()}</p>
+        <h4>Les points clés</h4>
+        <ul>${learn.slice(0, 4).map(l => `<li>${l}</li>`).join('')}</ul>
+        <div class="callout">${icon('star')}<div><b>À retenir</b><p>La pratique régulière fait toute la différence : 20 minutes par jour valent mieux que 3 heures une fois par semaine.</p></div></div>
+        <button class="btn btn-primary" id="readDone">${icon('check')}${isDone(cur) ? 'Lecture terminée' : 'J\'ai terminé la lecture'}</button>
+      </article>`;
+      $('readDone').onclick = () => { markDone(); renderViewer(); };
+    }
+
+    else if (cur.type === 'quiz') {
+      const qs = quizQuestions();
+      v.innerHTML = `<form class="v-quiz" id="quiz">
+        <h3>${cur.title}</h3><p class="muted">Répondez aux 3 questions. Il faut au moins 2 bonnes réponses pour valider.</p>
+        ${qs.map((q, i) => `<fieldset><legend>${i + 1}. ${q.q}</legend>
+          ${q.opts.map((o, k) => `<label class="qopt"><input type="radio" name="q${i}" value="${k}" required><span>${o}</span></label>`).join('')}
+        </fieldset>`).join('')}
+        <div class="quiz-foot"><button class="btn btn-primary" type="submit">Valider mes réponses</button><span id="quizRes"></span></div>
+      </form>`;
+      $('quiz').onsubmit = e => {
+        e.preventDefault();
+        let score = 0;
+        qs.forEach((q, i) => {
+          const val = +e.target[`q${i}`].value;
+          e.target.querySelectorAll(`[name=q${i}]`).forEach((inp, k) => {
+            inp.closest('.qopt').classList.toggle('good', k === q.answer);
+            inp.closest('.qopt').classList.toggle('bad', k === val && k !== q.answer);
+            inp.disabled = true;
+          });
+          if (val === q.answer) score++;
+        });
+        const ok = score >= 2;
+        $('quizRes').innerHTML = `<b style="color:var(--green)">${score}/3</b> · ${ok ? 'Quiz validé, bravo !' : 'Pas encore, réessayez.'} <button type="button" class="link-btn" id="retry">Recommencer</button>`;
+        $('retry').onclick = renderViewer;
+        e.target.querySelector('[type=submit]').disabled = true;
+        if (ok) markDone();
+      };
+    }
+
+    else if (cur.type === 'exercice') {
+      if (c.cat === 'web') {
+        const start = '<h1>Mon premier titre</h1>\n<p>Modifiez ce code : ajoutez un bouton vert.</p>\n\n<style>\n  body { font-family: sans-serif; padding: 16px; }\n</style>';
+        v.innerHTML = `<div class="v-code">
+          <div class="code-head"><b>Consigne :</b> ajoutez un élément <code>&lt;button&gt;</code> dans la page, puis cliquez sur « Vérifier ».</div>
+          <div class="code-grid">
+            <textarea id="code" spellcheck="false" aria-label="Éditeur de code">${(st.notes['code-' + cur.id] || start).replace(/</g, '&lt;')}</textarea>
+            <iframe id="preview" title="Aperçu du résultat" sandbox=""></iframe>
+          </div>
+          <div class="quiz-foot"><button class="btn btn-primary" id="check">${icon('check')}Vérifier</button><button class="btn btn-ghost" id="reset">Réinitialiser</button><span id="codeRes"></span></div>
+        </div>`;
+        const run = () => { $('preview').srcdoc = $('code').value; st.notes['code-' + cur.id] = $('code').value; Learn.set(c.id, st); };
+        $('code').oninput = run; run();
+        $('reset').onclick = () => { $('code').value = start; run(); };
+        $('check').onclick = () => {
+          const ok = /<button[\s>]/i.test($('code').value);
+          $('codeRes').innerHTML = ok ? '<b style="color:var(--green)">Parfait, l\'exercice est réussi !</b>' : 'Il manque encore un élément <code>&lt;button&gt;</code>.';
+          if (ok) markDone();
+        };
+      } else {
+        const steps = [`Relisez la leçon précédente sur ${SECTION_NAMES[cur.section].toLowerCase()}`, `Appliquez : ${learn[(cur.section + 1) % learn.length].toLowerCase()}`, 'Notez ce que vous avez appris en 3 phrases'];
+        v.innerHTML = `<div class="v-task">
+          <h3>${cur.title}</h3><p class="muted">Suivez les étapes, puis envoyez votre réponse.</p>
+          <ol>${steps.map((s, i) => `<li><label class="qopt"><input type="checkbox" class="step"><span>${s}</span></label></li>`).join('')}</ol>
+          <label class="field"><span style="font-size:13px;font-weight:600">Votre réponse</span><textarea class="input" id="answer" placeholder="Écrivez ici ce que vous avez réalisé…">${st.notes['ans-' + cur.id] || ''}</textarea></label>
+          <div class="quiz-foot"><button class="btn btn-primary" id="send">${icon('send')}Envoyer ma réponse</button><span id="taskRes"></span></div>
+        </div>`;
+        $('send').onclick = () => {
+          const all = [...document.querySelectorAll('.step')].every(x => x.checked);
+          const txt = $('answer').value.trim();
+          if (!all || txt.length < 10) return $('taskRes').textContent = 'Cochez toutes les étapes et écrivez au moins une phrase.';
+          st.notes['ans-' + cur.id] = txt;
+          $('taskRes').innerHTML = '<b style="color:var(--green)">Réponse envoyée au formateur.</b>';
+          markDone();
+        };
+      }
+    }
+
+    else if (cur.type === 'document') {
+      const name = cur.section === 4 ? 'cahier-des-charges.txt' : `fiche-recap-section-${cur.section + 1}.txt`;
+      v.innerHTML = `<div class="v-doc">
+        <div class="doc-ico">${icon('file')}</div>
+        <h3>${cur.title}</h3>
+        <p class="muted">${name} · document texte · à garder pour réviser</p>
+        <button class="btn btn-primary" id="dl">${icon('download')}Télécharger le document</button>
+      </div>`;
+      $('dl').onclick = () => {
+        const body = `${c.title}\n${'='.repeat(c.title.length)}\n\n${cur.title}\nSection ${cur.section + 1} : ${SECTION_NAMES[cur.section]}\n\nPoints clés :\n${learn.map(l => '- ' + l).join('\n')}\n\nFormateur : ${t.name}\nKoyeba`;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([body], { type: 'text/plain;charset=utf-8' }));
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        markDone();
+      };
+    }
+  }
+
+  // ---- Onglets sous la leçon ----
+  function renderTabs() {
+    $('tabAbout').innerHTML = `<p>${c.subtitle}</p>
+      <p style="margin-top:8px">Cette leçon fait partie de la section <b>${SECTION_NAMES[cur.section]}</b>. Formateur : <a href="formateurs.html#${t.id}" style="color:var(--green);font-weight:600">${t.name}</a>.</p>`;
+    $('notes').value = st.notes[cur.id] || '';
+    $('notesSaved').textContent = '';
+    $('tabRes').innerHTML = `<ul class="includes">
+      <li>${icon('file')}<a href="#" data-goto-doc>Fiche récapitulative de la section</a></li>
+      <li>${icon('chat')}<a href="messages.html?to=${t.id}">Poser une question au formateur</a></li>
+      ${c.features.includes('audio') ? `<li>${icon('headphones')}<a href="audio.html">Cours audio accessibles</a></li>` : ''}
+    </ul>`;
+  }
+  $('tabs').onclick = e => {
+    const b = e.target.closest('[data-tab]');
+    if (!b) return;
+    document.querySelectorAll('#tabs .tab').forEach(x => x.classList.toggle('active', x === b));
+    $('tabAbout').hidden = b.dataset.tab !== 'about';
+    $('tabNotes').hidden = b.dataset.tab !== 'notes';
+    $('tabRes').hidden = b.dataset.tab !== 'res';
+  };
+  let noteTimer;
+  $('notes').oninput = () => {
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(() => { st.notes[cur.id] = $('notes').value; Learn.set(c.id, st); $('notesSaved').textContent = 'Notes enregistrées'; }, 400);
+  };
+  $('tabRes').onclick = e => {
+    if (!e.target.closest('[data-goto-doc]')) return;
+    e.preventDefault();
+    const doc = sections[cur.section].lessons.find(l => l.type === 'document') || lessons.find(l => l.type === 'document');
+    go(doc);
+  };
+
+  // ---- Navigation ----
+  function go(l) {
+    cur = l;
+    save();
+    history.replaceState(null, '', `lecture.html?id=${c.id}&lecon=${l.id}`);
+    renderViewer(); renderBar(); renderSide(); renderTabs();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  $('prevBtn').onclick = () => go(lessons[lessons.indexOf(cur) - 1]);
+  $('nextBtn').onclick = () => go(lessons[lessons.indexOf(cur) + 1]);
+  $('doneBtn').onclick = () => markDone(cur, !isDone(cur));
+  $('curriculum').onclick = e => {
+    const tg = e.target.closest('[data-toggle]');
+    if (tg) { e.stopPropagation(); const l = lessons.find(x => x.id === tg.dataset.toggle); markDone(l, !isDone(l)); return; }
+    const b = e.target.closest('[data-l]');
+    if (b) go(lessons.find(x => x.id === b.dataset.l));
+  };
+  window.addEventListener('beforeunload', () => speechSynthesis?.cancel());
+
+  save();
+  renderProgress(); renderSide(); renderBar(); renderViewer(); renderTabs();
+</script>
+</body>
+</html>

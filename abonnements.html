@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Abonnements et cauris – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="abonnements">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <section class="pricing-head">
+      <h1>Choisissez votre formule</h1>
+      <p>Apprenez à votre rythme. Payez au mois, ou une seule fois pour toute l'année.</p>
+      <div class="seg" role="radiogroup" aria-label="Période de paiement" id="periodSeg">
+        <button role="radio" aria-checked="true" data-period="mensuel">Mensuel</button>
+        <button role="radio" aria-checked="false" data-period="unique">Paiement unique · 12 mois <span class="seg-tag">2 mois offerts</span></button>
+      </div>
+    </section>
+
+    <div class="current-plan" id="currentPlan" hidden></div>
+    <div class="plans" id="plans"></div>
+    <p class="plans-note">Sans abonnement, les cours gratuits restent accessibles. Les cours payants s'achètent en cauris et chaque certificat coûte <b>300 cauris</b>.</p>
+
+    <!-- Porte-monnaie de cauris -->
+    <section id="cauris" class="wallet-sec" aria-labelledby="cTitle">
+      <div class="wallet-card">
+        <div>
+          <span class="wc-kicker">${icon}</span>
+          <h2 id="cTitle">Mon porte-monnaie</h2>
+          <p class="wc-bal"><span id="wBal"></span><small>cauris</small></p>
+          <p class="wc-eq" id="wEq"></p>
+        </div>
+        <div class="wc-info">
+          <p><b>1 200 cauris = 2 000 FCFA</b></p>
+          <p>Les cauris sont la monnaie de Koyeba. Ils servent à acheter des cours, des certificats ou un abonnement.</p>
+        </div>
+      </div>
+
+      <h2 class="h" style="margin-top:28px">Recharger des cauris</h2>
+      <div class="packs" id="packs"></div>
+
+      <h2 class="h" style="margin-top:28px">Historique</h2>
+      <div class="card history" id="history"></div>
+    </section>
+
+    <section class="faq" aria-labelledby="faqTitle">
+      <h2 class="h" id="faqTitle">Questions fréquentes</h2>
+      <details><summary>Qu'est-ce qu'un cauri ?<svg class="i"><use href="#i-chevron"/></svg></summary><p>C'est la monnaie de la plateforme, en hommage aux coquillages utilisés autrefois comme monnaie en Afrique. 1 200 cauris valent 2 000 FCFA.</p></details>
+      <details><summary>Quelle différence entre mensuel et paiement unique ?<svg class="i"><use href="#i-chevron"/></svg></summary><p>Le mensuel se renouvelle chaque mois et peut être arrêté à tout moment. Le paiement unique couvre 12 mois pour le prix de 10, sans renouvellement automatique.</p></details>
+      <details><summary>Comment obtenir mon certificat ?<svg class="i"><use href="#i-chevron"/></svg></summary><p>Terminez le cours à 100 %, puis ouvrez Certificats. Il est inclus dans les formules Pro, Max et Établissement, 2 par mois pour Étudiant, sinon il coûte 300 cauris.</p></details>
+      <details><summary>Quels moyens de paiement ?<svg class="i"><use href="#i-chevron"/></svg></summary><p>MTN Mobile Money, Airtel Money, ou vos cauris. Le paiement dans cette version de démonstration est simulé.</p></details>
+    </section>
+  </main>
+</div>
+
+<!-- Fenêtre de paiement -->
+<div class="modal" id="payModal" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+  <form class="box pay-box" id="payForm">
+    <header><h3 id="payTitle" style="font-size:16px"></h3><button type="button" id="payClose" aria-label="Fermer"><svg class="i"><use href="#i-x"/></svg></button></header>
+    <div class="pay-body">
+      <div class="pay-sum" id="paySum"></div>
+      <fieldset class="pay-methods" id="payMethods"><legend>Moyen de paiement</legend></fieldset>
+      <label class="field" id="phoneField"><span style="font-size:13px;font-weight:600">Numéro Mobile Money</span>
+        <input class="input" id="phone" inputmode="tel" placeholder="06 000 00 00" autocomplete="off"></label>
+      <p class="pay-demo"><svg class="i"><use href="#i-lock"/></svg>Paiement simulé : cette version de démonstration ne débite aucune somme.</p>
+      <button class="btn btn-primary btn-block" id="payBtn"></button>
+    </div>
+  </form>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  let period = params.get('periode') === 'unique' ? 'unique' : 'mensuel';
+  const toCaurisFromXAF = xaf => Math.ceil(xaf / CAURI_XAF / 10) * 10;
+  document.querySelector('.wc-kicker').innerHTML = icon('cauri') + 'Cauris';
+
+  // ---- Formules ----
+  function renderPlans() {
+    const sub = Sub.get(), cur = Sub.plan();
+    document.querySelectorAll('#periodSeg button').forEach(b => b.setAttribute('aria-checked', b.dataset.period === period));
+    $('plans').innerHTML = PLANS.map(p => {
+      const price = planPrice(p, period), isCur = cur && cur.id === p.id;
+      return `<article class="plan ${p.popular ? 'featured' : ''} ${isCur ? 'is-current' : ''}">
+        ${p.popular ? '<span class="plan-flag">Le plus populaire</span>' : ''}
+        <div class="plan-ico">${icon(p.icon)}</div>
+        <h2>${p.name}</h2>
+        <p class="plan-tag">${p.tagline}</p>
+        <div class="plan-price"><b>${fmtNum(price)}</b><span>FCFA ${period === 'unique' ? '/ 12 mois' : '/ mois'}</span></div>
+        <p class="plan-eq">soit ${fmtCauris(toCaurisFromXAF(price))} cauris${period === 'unique' ? ` · ${fmtNum(Math.round(price / 12))} FCFA par mois` : ''}</p>
+        ${isCur ? `<button class="btn btn-ghost btn-block" disabled>Votre formule actuelle</button>`
+               : `<button class="btn ${p.popular ? 'btn-primary' : 'btn-soft'} btn-block" data-plan="${p.id}">${cur ? 'Passer à ' : 'Choisir '}${p.name}</button>`}
+        <ul>${p.features.map(f => `<li>${icon('check')}${f}</li>`).join('')}</ul>
+      </article>`;
+    }).join('');
+    $('currentPlan').hidden = !cur;
+    if (cur) $('currentPlan').innerHTML = `${icon('crown')}<span>Formule <b>${cur.name}</b> active · ${sub.period === 'unique' ? 'paiement unique' : 'mensuel, renouvelé automatiquement'} jusqu'au ${new Date(sub.end).toLocaleDateString('fr-FR')}</span>
+      <button class="link-btn" id="cancelSub">${sub.period === 'unique' ? 'Retirer' : 'Résilier'}</button>`;
+    $('cancelSub')?.addEventListener('click', () => {
+      if (!confirm('Arrêter votre abonnement ? Vous garderez l\'accès aux cours et certificats déjà obtenus.')) return;
+      Sub.cancel(); toast('Abonnement résilié'); renderPlans();
+    });
+  }
+  $('periodSeg').onclick = e => { const b = e.target.closest('[data-period]'); if (b) { period = b.dataset.period; renderPlans(); } };
+  $('plans').onclick = e => { const b = e.target.closest('[data-plan]'); if (b) openPay({ type: 'plan', plan: planById(b.dataset.plan) }); };
+
+  // ---- Porte-monnaie ----
+  function renderWallet() {
+    const w = Wallet.get();
+    $('wBal').textContent = fmtNum(w.balance);
+    $('wEq').textContent = `≈ ${fmtXAF(caurisToXAF(w.balance))}`;
+    $('packs').innerHTML = CAURI_PACKS.map((k, i) => `
+      <button class="pack ${k.tag === 'Le plus choisi' ? 'best' : ''}" data-pack="${i}">
+        ${k.tag ? `<span class="pack-tag">${k.tag}</span>` : ''}
+        <span class="pack-ico">${icon('cauri')}</span>
+        <b>${fmtNum(k.cauris)}</b><small>cauris</small>
+        <span class="pack-price">${fmtXAF(k.xaf)}</span>
+      </button>`).join('');
+    $('history').innerHTML = w.history.slice(0, 12).map(h => `
+      <div class="hist"><span class="hist-ico ${h.amount > 0 ? 'in' : 'out'}">${icon(h.amount > 0 ? 'plus' : 'cauri')}</span>
+        <span><b>${h.label}</b><small>${new Date(h.date).toLocaleDateString('fr-FR')}</small></span>
+        <span class="hist-amt ${h.amount > 0 ? 'in' : ''}">${h.amount > 0 ? '+' : '−'}${fmtNum(Math.abs(h.amount))}</span></div>`).join('') || '<p class="ci-empty">Aucune opération.</p>';
+  }
+  $('packs').onclick = e => { const b = e.target.closest('[data-pack]'); if (b) openPay({ type: 'pack', pack: CAURI_PACKS[+b.dataset.pack] }); };
+  document.addEventListener('walletchange', renderWallet);
+
+  // ---- Paiement (simulé) ----
+  let order = null;
+  function openPay(o) {
+    order = o;
+    const xaf = o.type === 'plan' ? planPrice(o.plan, period) : o.pack.xaf;
+    const cauris = o.type === 'plan' ? toCaurisFromXAF(xaf) : null;
+    order.xaf = xaf; order.cauris = cauris;
+    $('payTitle').textContent = o.type === 'plan' ? `Formule ${o.plan.name}` : 'Recharger des cauris';
+    $('paySum').innerHTML = o.type === 'plan'
+      ? `<div class="kv"><span>Formule</span><b>${o.plan.name}</b></div><div class="kv"><span>Période</span><b>${period === 'unique' ? 'Paiement unique · 12 mois' : 'Mensuel'}</b></div><div class="kv" style="border:none"><span>Total</span><b>${fmtXAF(xaf)}</b></div>`
+      : `<div class="kv"><span>Vous recevez</span><b>${fmtCauris(o.pack.cauris)} cauris</b></div><div class="kv" style="border:none"><span>Total</span><b>${fmtXAF(xaf)}</b></div>`;
+    const bal = Wallet.balance();
+    $('payMethods').innerHTML = '<legend>Moyen de paiement</legend>' +
+      [['mtn', 'MTN Mobile Money', 'mobile'], ['airtel', 'Airtel Money', 'mobile']].map(([v, l, ic], i) =>
+        `<label class="qopt"><input type="radio" name="method" value="${v}" ${i === 0 ? 'checked' : ''}><span>${l}</span></label>`).join('') +
+      (cauris ? `<label class="qopt ${bal < cauris ? 'disabled' : ''}"><input type="radio" name="method" value="cauris" ${bal < cauris ? 'disabled' : ''}>
+        <span>Mes cauris · ${fmtCauris(cauris)} <small style="color:var(--muted)">(solde ${fmtNum(bal)})</small></span></label>` : '');
+    updatePayBtn();
+    $('payModal').classList.add('show');
+  }
+  function updatePayBtn() {
+    const m = $('payForm').method.value;
+    $('phoneField').hidden = m === 'cauris';
+    $('phone').required = m !== 'cauris';
+    $('payBtn').innerHTML = m === 'cauris' ? `Payer ${fmtNum(order.cauris)} cauris` : `Payer ${fmtXAF(order.xaf)}`;
+  }
+  $('payMethods').onchange = updatePayBtn;
+  const closePay = () => $('payModal').classList.remove('show');
+  $('payClose').onclick = closePay;
+  $('payModal').onclick = e => { if (e.target.id === 'payModal') closePay(); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePay(); });
+  $('payForm').onsubmit = e => {
+    e.preventDefault();
+    const m = $('payForm').method.value;
+    if (m !== 'cauris' && $('phone').value.replace(/\D/g, '').length < 9) return toast('Entrez un numéro Mobile Money valide');
+    if (m === 'cauris' && !Wallet.spend(order.cauris, `Abonnement ${order.plan.name}`)) return toast('Solde de cauris insuffisant');
+    if (order.type === 'plan') {
+      Sub.set(order.plan.id, period);
+      if (m !== 'cauris') { const w = Wallet.get(); w.history.unshift({ label: `Abonnement ${order.plan.name} (${m === 'mtn' ? 'MTN' : 'Airtel'})`, amount: 0, date: new Date().toISOString().slice(0, 10) }); Wallet.save(w); }
+      toast(`Bienvenue dans la formule ${order.plan.name} !`);
+      renderPlans();
+      window.scrollTo({ top: 0 });
+    } else {
+      Wallet.add(order.pack.cauris, `Recharge ${fmtNum(order.pack.cauris)} cauris (${m === 'mtn' ? 'MTN' : 'Airtel'})`);
+      toast(`${fmtNum(order.pack.cauris)} cauris ajoutés à votre porte-monnaie`);
+    }
+    $('phone').value = '';
+    closePay();
+  };
+
+  renderPlans();
+  renderWallet();
+  if (location.hash === '#cauris') setTimeout(() => $('cauris').scrollIntoView(), 50);
+</script>
+</body>
+</html>

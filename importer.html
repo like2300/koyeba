@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importer un cours – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="importer">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › Importer un cours</div>
+      <h1 id="formTitle">Importer un cours</h1>
+      <p>Ajoutez vos vidéos et documents pour publier votre propre formation. Tout est enregistré automatiquement : rien n'est perdu si vous quittez la page.</p>
+    </div>
+
+    <div class="edit-banner" id="editBanner" hidden>
+      <svg class="i"><use href="#i-edit"/></svg><span id="editTxt"></span>
+      <button class="link-btn" id="cancelEdit">Annuler la modification</button>
+    </div>
+
+    <form class="form-grid" id="form">
+      <div>
+        <label class="dropzone" id="drop">
+          <input type="file" id="files" multiple accept="video/*,image/*,audio/*,.pdf,.zip,.pptx,.docx,.txt" hidden>
+          <div class="ico"><svg class="i"><use href="#i-upload"/></svg></div>
+          <h3>Glissez vos fichiers ici</h3>
+          <p>ou <b style="color:var(--green)">parcourez votre ordinateur</b> · Vidéos, images, audio, PDF, ZIP, PowerPoint</p>
+        </label>
+        <div class="file-list" id="list"></div>
+
+        <div class="card" style="margin-top:20px">
+          <h3>Informations du cours</h3>
+          <div class="field">
+            <label for="title">Titre du cours</label>
+            <input class="input" id="title" name="title" required placeholder="Ex. : Les bases de la photographie">
+          </div>
+          <div class="field">
+            <label for="subtitle">Sous-titre</label>
+            <input class="input" id="subtitle" name="subtitle" placeholder="Une phrase qui résume votre cours">
+          </div>
+          <div class="two-col">
+            <div class="field"><label for="cat">Catégorie</label><select class="input" id="cat" name="cat"></select></div>
+            <div class="field"><label for="level">Niveau</label>
+              <select class="input" id="level" name="level"><option>Débutant</option><option>Intermédiaire</option><option>Avancé</option></select></div>
+            <div class="field"><label for="lang">Langue</label><select class="input" id="lang" name="lang"><option>Français</option><option>Anglais</option></select></div>
+            <div class="field"><label for="price">Prix (cauris)</label>
+              <input class="input" id="price" name="price" type="number" min="0" step="50" value="0"><span class="hint">0 = cours gratuit · 1 200 cauris = 2 000 FCFA</span></div>
+          </div>
+          <div class="field">
+            <label for="desc">Description</label>
+            <textarea class="input" id="desc" name="desc" placeholder="Ce que les apprenants vont découvrir…"></textarea>
+          </div>
+          <label class="qopt" style="margin:0"><input type="checkbox" id="audioV" name="audio"><span>Je fournis aussi une version audio (accessible aux non-voyants)</span></label>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <div class="kv"><span>Fichiers</span><b id="kFiles">0</b></div>
+          <div class="kv"><span>Taille totale</span><b id="kSize">0 Mo</b></div>
+          <div class="kv" style="border:none;margin-bottom:16px"><span>Enregistrement</span><b id="kSaved">–</b></div>
+          <button class="btn btn-primary btn-block" type="submit"><svg class="i"><use href="#i-upload"/></svg><span id="publishTxt">Publier le cours</span></button>
+          <button class="btn btn-ghost btn-block" type="button" id="draftBtn" style="margin-top:10px">Enregistrer comme brouillon</button>
+          <button class="btn btn-ghost btn-block btn-sm" type="button" id="clearBtn" style="margin-top:10px">Vider le formulaire</button>
+        </div>
+        <div class="card">
+          <h3>Conseils pour un bon cours</h3>
+          <ul class="includes">
+            <li><svg class="i"><use href="#i-check"/></svg>Des vidéos de 3 à 10 minutes</li>
+            <li><svg class="i"><use href="#i-check"/></svg>Un son clair, sans bruit de fond</li>
+            <li><svg class="i"><use href="#i-check"/></svg>Un exercice à la fin de chaque section</li>
+            <li><svg class="i"><use href="#i-check"/></svg>Une image de couverture en 16:9</li>
+            <li><svg class="i"><use href="#i-check"/></svg>Une version audio pour l'accessibilité</li>
+          </ul>
+        </div>
+      </aside>
+    </form>
+
+    <section style="margin-top:40px" aria-labelledby="mineTitle">
+      <h2 class="h" id="mineTitle">Mes cours importés</h2>
+      <div class="tabs" id="mineTabs"></div>
+      <div class="imports" id="imports"></div>
+    </section>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  /* ---------- Stockage des fichiers (IndexedDB) : ils restent après rechargement ---------- */
+  const FileDB = {
+    db: null,
+    open() {
+      if (this.db) return Promise.resolve(this.db);
+      return new Promise((res, rej) => {
+        const r = indexedDB.open('apprendo-files', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('files');
+        r.onsuccess = () => res(this.db = r.result);
+        r.onerror = () => rej(r.error);
+      });
+    },
+    async run(mode, fn) { const db = await this.open(); return new Promise((res, rej) => { const tx = db.transaction('files', mode); const q = fn(tx.objectStore('files')); tx.oncomplete = () => res(q?.result); tx.onerror = () => rej(tx.error); }); },
+    put(key, blob) { return this.run('readwrite', s => s.put(blob, key)); },
+    get(key) { return this.run('readonly', s => s.get(key)); },
+    del(key) { return this.run('readwrite', s => s.delete(key)); }
+  };
+
+  /* ---------- Cours importés et brouillon en cours (localStorage) ---------- */
+  const KEY = 'apprendo-imports', DRAFT = 'apprendo-import-draft';
+  const load = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  let imports = load(KEY) || [];
+  let draft = load(DRAFT) || { id: null, fields: {}, files: [] };
+  let tab = 'actifs';
+
+  const FIELDS = ['title', 'subtitle', 'cat', 'level', 'lang', 'price', 'desc'];
+  const size = b => b > 1e9 ? (b / 1e9).toFixed(1) + ' Go' : b > 1e6 ? (b / 1e6).toFixed(1) + ' Mo' : Math.max(1, Math.round(b / 1e3)) + ' Ko';
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const fileIcon = f => f.type.startsWith('video') ? 'video' : f.type.startsWith('audio') ? 'headphones' : 'file';
+  const now = () => new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  $('cat').innerHTML = CATEGORIES.map(c => `<option>${c.name}</option>`).join('');
+
+  /* ---------- Formulaire ---------- */
+  function fillForm() {
+    FIELDS.forEach(f => { if (draft.fields[f] !== undefined) $(f).value = draft.fields[f]; });
+    $('audioV').checked = !!draft.fields.audio;
+    const editing = draft.id && imports.find(x => x.id === draft.id);
+    $('editBanner').hidden = !editing;
+    if (editing) $('editTxt').textContent = `Vous modifiez « ${editing.fields.title || 'Sans titre'} ».`;
+    $('publishTxt').textContent = editing ? 'Enregistrer et publier' : 'Publier le cours';
+    renderFiles();
+  }
+  function readForm() {
+    FIELDS.forEach(f => draft.fields[f] = $(f).value);
+    draft.fields.audio = $('audioV').checked;
+  }
+  let saveTimer;
+  function autosave() {
+    readForm();
+    store(DRAFT, draft);
+    $('kSaved').textContent = 'Enregistré ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+  $('form').addEventListener('input', () => { clearTimeout(saveTimer); saveTimer = setTimeout(autosave, 300); });
+
+  function renderFiles() {
+    $('list').innerHTML = draft.files.map((f, i) => `
+      <div class="file">${icon(fileIcon(f))}
+        <button type="button" class="file-open" data-open="${f.key}" title="Ouvrir le fichier">${esc(f.name)}</button>
+        <span class="sz">${size(f.size)}</span>
+        <button type="button" data-rm="${i}" aria-label="Retirer ${esc(f.name)}">${icon('x')}</button></div>`).join('');
+    $('kFiles').textContent = draft.files.length;
+    $('kSize').textContent = draft.files.length ? size(draft.files.reduce((s, f) => s + f.size, 0)) : '0 Mo';
+  }
+
+  async function addFiles(list) {
+    for (const f of list) {
+      const key = 'f' + Date.now() + Math.random().toString(36).slice(2, 7);
+      try { await FileDB.put(key, f); } catch { toast('Impossible d\'enregistrer ' + f.name); continue; }
+      draft.files.push({ key, name: f.name, size: f.size, type: f.type || '' });
+    }
+    renderFiles();
+    autosave();
+  }
+  async function openFile(key) {
+    const blob = await FileDB.get(key);
+    if (!blob) return toast('Fichier introuvable');
+    window.open(URL.createObjectURL(blob), '_blank');
+  }
+
+  $('files').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+  drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+  $('list').onclick = e => {
+    const o = e.target.closest('[data-open]');
+    if (o) return openFile(o.dataset.open);
+    const b = e.target.closest('[data-rm]');
+    if (!b) return;
+    const [f] = draft.files.splice(+b.dataset.rm, 1);
+    // Le fichier n'est effacé que s'il n'appartient à aucun cours enregistré
+    if (!imports.some(x => x.files.some(y => y.key === f.key))) FileDB.del(f.key);
+    renderFiles(); autosave();
+  };
+
+  function saveCourse(status) {
+    readForm();
+    if (!draft.fields.title?.trim()) { $('title').focus(); return toast('Donnez un titre à votre cours'); }
+    if (status === 'validation' && !draft.files.length) return toast('Ajoutez au moins un fichier pour publier');
+    const existing = imports.find(x => x.id === draft.id);
+    const record = { id: draft.id || 'imp' + Date.now(), fields: { ...draft.fields }, files: [...draft.files], status, archived: existing?.archived || false, created: existing?.created || now(), updated: now() };
+    imports = existing ? imports.map(x => x.id === record.id ? record : x) : [record, ...imports];
+    store(KEY, imports);
+    draft = { id: null, fields: {}, files: [] };
+    store(DRAFT, draft);
+    $('form').reset();
+    fillForm();
+    $('kSaved').textContent = '–';
+    tab = status === 'brouillon' ? 'brouillons' : 'actifs';
+    renderImports();
+    toast(status === 'brouillon' ? `Brouillon « ${record.fields.title} » enregistré` : `« ${record.fields.title} » envoyé pour validation`);
+    $('mineTitle').scrollIntoView({ behavior: 'smooth' });
+  }
+  $('form').onsubmit = e => { e.preventDefault(); saveCourse('validation'); };
+  $('draftBtn').onclick = () => saveCourse('brouillon');
+  $('clearBtn').onclick = () => {
+    if (!confirm('Vider le formulaire ? Les cours déjà enregistrés ne sont pas touchés.')) return;
+    draft.files.forEach(f => { if (!imports.some(x => x.files.some(y => y.key === f.key))) FileDB.del(f.key); });
+    draft = { id: null, fields: {}, files: [] };
+    store(DRAFT, draft);
+    $('form').reset(); fillForm();
+  };
+  $('cancelEdit').onclick = () => { draft = { id: null, fields: {}, files: [] }; store(DRAFT, draft); $('form').reset(); fillForm(); };
+
+  /* ---------- Liste des cours importés ---------- */
+  const STATUS = { validation: 'En validation', brouillon: 'Brouillon' };
+  function renderImports() {
+    const groups = {
+      actifs: ['Publiés', imports.filter(x => !x.archived && x.status === 'validation')],
+      brouillons: ['Brouillons', imports.filter(x => !x.archived && x.status === 'brouillon')],
+      archives: ['Archivés', imports.filter(x => x.archived)]
+    };
+    $('mineTabs').innerHTML = Object.entries(groups).map(([k, [label, list]]) =>
+      `<button class="tab ${k === tab ? 'active' : ''}" data-tab="${k}">${label}<span class="count">${list.length}</span></button>`).join('');
+    const list = groups[tab][1];
+    $('imports').innerHTML = list.map(x => {
+      const cat = CATEGORIES.find(c => c.name === x.fields.cat) || CATEGORIES[0];
+      const price = +x.fields.price > 0 ? fmtCauris(+x.fields.price) : 'Gratuit';
+      return `<article class="imp ${x.archived ? 'archived' : ''}">
+        <img src="${IMG(cat.img, 300)}" alt="">
+        <div class="imp-info">
+          <div class="imp-tags"><span class="chip">${x.archived ? 'Archivé' : STATUS[x.status]}</span>${x.fields.audio ? `<span class="chip">${icon('headphones')}Audio</span>` : ''}</div>
+          <h3>${esc(x.fields.title)}</h3>
+          <p>${esc(x.fields.subtitle || x.fields.desc || 'Pas de description')}</p>
+          <small>${esc(x.fields.cat)} · ${esc(x.fields.level)} · ${price} · ${x.files.length} fichier${x.files.length > 1 ? 's' : ''} · modifié le ${x.updated}</small>
+          ${x.files.length ? `<div class="imp-files">${x.files.map(f => `<button class="chip" data-open="${f.key}">${icon(fileIcon(f))}${esc(f.name)}</button>`).join('')}</div>` : ''}
+        </div>
+        <div class="imp-actions">
+          ${x.archived ? '' : `<button class="btn btn-soft btn-sm" data-edit="${x.id}">${icon('edit')}Modifier</button>`}
+          <button class="btn btn-ghost btn-sm" data-archive="${x.id}">${icon(x.archived ? 'upload' : 'layers')}${x.archived ? 'Restaurer' : 'Archiver'}</button>
+          <button class="btn btn-ghost btn-sm" data-del="${x.id}">${icon('trash')}Supprimer</button>
+        </div>
+      </article>`;
+    }).join('') || `<div class="empty" style="padding:40px 20px">
+      <div class="ico"><svg class="i"><use href="#i-${tab === 'archives' ? 'layers' : 'upload'}"/></svg></div>
+      <h3>${tab === 'archives' ? 'Aucun cours archivé' : tab === 'brouillons' ? 'Aucun brouillon' : 'Aucun cours publié'}</h3>
+      <p>${tab === 'archives' ? 'Archiver un cours le masque sans le supprimer : vous pouvez le restaurer à tout moment.' : 'Vos cours importés apparaîtront ici.'}</p></div>`;
+  }
+  $('mineTabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; renderImports(); } };
+  $('imports').onclick = async e => {
+    const o = e.target.closest('[data-open]');
+    if (o) return openFile(o.dataset.open);
+    const ed = e.target.closest('[data-edit]'), ar = e.target.closest('[data-archive]'), del = e.target.closest('[data-del]');
+    if (ed) {
+      const x = imports.find(i => i.id === ed.dataset.edit);
+      draft = { id: x.id, fields: { ...x.fields }, files: [...x.files] };
+      store(DRAFT, draft); fillForm();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    if (ar) {
+      const x = imports.find(i => i.id === ar.dataset.archive);
+      x.archived = !x.archived;
+      store(KEY, imports); renderImports();
+      toast(x.archived ? 'Cours archivé : il est masqué mais pas supprimé' : 'Cours restauré');
+    }
+    if (del) {
+      const x = imports.find(i => i.id === del.dataset.del);
+      if (!confirm(`Supprimer définitivement « ${x.fields.title} » et ses fichiers ?\nPour le masquer sans le perdre, utilisez plutôt « Archiver ».`)) return;
+      imports = imports.filter(i => i.id !== x.id);
+      store(KEY, imports);
+      for (const f of x.files) if (!draft.files.some(d => d.key === f.key)) await FileDB.del(f.key);
+      if (draft.id === x.id) { draft.id = null; store(DRAFT, draft); fillForm(); }
+      renderImports();
+      toast('Cours supprimé');
+    }
+  };
+
+  fillForm();
+  if (draft.fields.title || draft.files.length) $('kSaved').textContent = 'Brouillon récupéré';
+  renderImports();
+</script>
+</body>
+</html>

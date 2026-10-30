@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profil étudiant – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="etudiant">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="crumbs"><a href="index.html">Accueil</a> › Meilleurs étudiants › <span id="crumb"></span></div>
+    <div class="sp-cover"></div>
+    <div class="sp-head" id="head"></div>
+
+    <div class="sp-stats" id="stats"></div>
+
+    <div class="sp-grid">
+      <div>
+        <div class="card">
+          <h3>Progression</h3>
+          <div class="st-xp" id="xp"></div>
+          <div class="st-goal" style="margin-top:20px">
+            <div><span>Temps d'étude cette semaine</span><b id="weekTotal"></b></div>
+            <div class="st-chart" id="chart" style="height:110px"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Cours suivis</h3>
+          <div class="tabs" id="tabs" style="margin-top:-6px"></div>
+          <div class="grid-cards" id="courses"></div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h3>Badges</h3>
+          <div class="badges" id="badges"></div>
+        </div>
+        <div class="card">
+          <h3>Classement</h3>
+          <div class="leader" id="leader"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const ranked = [...STUDENTS].sort((a, b) => b.xp - a.xp);
+  const s = studentById(params.get('id')) || ranked[0];
+  const rank = studentRank(s);
+  const level = studentLevel(s);
+  const entries = Object.entries(s.courses).map(([id, progress]) => ({ c: courseById(id), progress }));
+  const done = entries.filter(e => e.progress === 100);
+  document.title = `${s.name} – Koyeba`;
+  $('crumb').textContent = s.name;
+
+  // ---- En-tête ----
+  let following = false;
+  try { following = (JSON.parse(localStorage.getItem('apprendo-students')) || []).includes(s.id); } catch {}
+  function renderHead() {
+    $('head').innerHTML = `
+      <span class="story ${s.active ? '' : 'seen'}"><span class="ring"><img src="${FACE(s.photo)}" alt="${s.name}"><b class="rank">#${rank}</b></span></span>
+      <div class="sp-id">
+        <h1>${s.name}</h1>
+        <span class="st-level">${icon('award')}Niveau ${level} · ${rank === 1 ? '1er' : rank + 'e'} du classement</span>
+        <p>
+          <span>${icon('globe')}${s.city}</span>
+          <span>${icon('calendar')}Membre depuis ${s.joined}</span>
+          <span>${icon('signal')}${s.active ? 'A étudié aujourd\'hui' : 'Inactif aujourd\'hui'}</span>
+        </p>
+        <p style="color:var(--text);margin-top:8px">${s.bio}</p>
+      </div>
+      <div class="sp-actions">
+        <button class="btn ${following ? 'btn-soft' : 'btn-primary'}" id="followBtn">${icon(following ? 'check' : 'plus')}${following ? 'Suivi' : 'Suivre'}</button>
+        <a class="btn btn-ghost" href="messages.html?to=${s.id}">${icon('chat')}Message</a>
+      </div>`;
+    $('followBtn').onclick = () => {
+      following = !following;
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem('apprendo-students')) || []; } catch {}
+      list = following ? [...new Set([...list, s.id])] : list.filter(x => x !== s.id);
+      try { localStorage.setItem('apprendo-students', JSON.stringify(list)); } catch {}
+      toast(following ? `Vous suivez ${s.name}` : `Vous ne suivez plus ${s.name}`);
+      renderHead();
+    };
+  }
+  renderHead();
+
+  // ---- Chiffres clés ----
+  const hours = Math.round(entries.reduce((t, e) => t + e.c.hours * e.progress / 100, 0));
+  $('stats').innerHTML = [
+    ['star', fmtNum(s.xp), 'points d\'XP'],
+    ['signal', s.streak + ' j', 'série en cours'],
+    ['award', done.length, 'certificats'],
+    ['clock', hours + ' h', 'd\'apprentissage']
+  ].map(([ic, v, l]) => `<div class="stat"><div class="ico">${icon(ic)}</div><div><b>${v}</b><small>${l}</small></div></div>`).join('');
+
+  // ---- Progression ----
+  const inLevel = s.xp % LEVEL_XP;
+  $('xp').innerHTML = `<div><span>Vers le niveau ${level + 1}</span><b>${fmtNum(inLevel)} / ${fmtNum(LEVEL_XP)} XP</b></div>
+    <div class="progress"><span style="width:${inLevel / LEVEL_XP * 100}%"></span></div>`;
+  const weekMin = s.week.reduce((t, m) => t + m, 0);
+  const maxMin = Math.max(...s.week, 1);
+  $('weekTotal').textContent = `${Math.floor(weekMin / 60)} h ${String(weekMin % 60).padStart(2, '0')}`;
+  $('chart').innerHTML = s.week.map((m, i) => `<div class="${i === 3 ? 'today' : ''}" title="${m} min">
+    <span style="height:${m ? Math.max(8, m / maxMin * 100) : 4}%"></span><small>${['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][i]}</small></div>`).join('');
+
+  // ---- Cours suivis ----
+  const TABS = { encours: ['En cours', entries.filter(e => e.progress < 100)], termines: ['Terminés', done] };
+  let tab = TABS.encours[1].length ? 'encours' : 'termines';
+  function renderCourses() {
+    $('tabs').innerHTML = Object.entries(TABS).map(([k, [label, list]]) =>
+      `<button class="tab ${k === tab ? 'active' : ''}" data-tab="${k}">${label}<span class="count">${list.length}</span></button>`).join('');
+    $('courses').innerHTML = TABS[tab][1].map(e => courseCard(e.c, `
+      <div class="progress"><span style="width:${e.progress}%"></span></div>
+      <div class="foot">${e.progress === 100 ? `<span class="done" style="color:var(--green);font-weight:600">Terminé</span><span>Certificat obtenu</span>` : `<span>${e.progress} % terminé</span>`}</div>`)).join('')
+      || '<p style="color:var(--muted);font-size:13px">Aucun cours dans cette catégorie.</p>';
+  }
+  $('tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) { tab = b.dataset.tab; renderCourses(); } };
+  renderCourses();
+
+  // ---- Badges ----
+  const cats = new Set(entries.map(e => e.c.cat)).size;
+  $('badges').innerHTML = [
+    ['check',  'Premier cours',  'Terminer un cours',      done.length >= 1],
+    ['signal', 'Régulier',       'Série de 7 jours',        s.streak >= 7],
+    ['crown',  'Assidu',         'Série de 30 jours',       s.streak >= 30],
+    ['award',  'Diplômé',        '3 certificats',           done.length >= 3],
+    ['star',   'Expert',         '10 000 XP',               s.xp >= 10000],
+    ['layers', 'Polyvalent',     '3 domaines différents',   cats >= 3]
+  ].map(([ic, name, rule, ok]) => `<div class="badge-item ${ok ? '' : 'locked'}" title="${rule}">
+      <div class="ico">${icon(ok ? ic : 'lock')}</div><b>${name}</b>${rule}</div>`).join('');
+
+  // ---- Classement ----
+  $('leader').innerHTML = ranked.map((x, i) => `
+    <a href="etudiant.html?id=${x.id}" class="${x.id === s.id ? 'me' : ''}">
+      <span class="pos">${i + 1}</span><img src="${FACE(x.photo)}" alt="">
+      <span>${x.name}</span><span class="xp">${fmtNum(x.xp)} XP</span>
+    </a>`).join('');
+</script>
+</body>
+</html>

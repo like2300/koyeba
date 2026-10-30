@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tous les cours – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="catalogue">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › <span id="crumb">Tous les cours</span></div>
+      <h1 id="pageTitle">Tous les cours</h1>
+      <p id="pageSub">Explorez notre catalogue et trouvez la formation qui vous correspond.</p>
+    </div>
+
+    <div class="toolbar">
+      <span class="count" id="count"></span>
+      <button class="btn btn-ghost btn-sm filter-toggle" id="openFilters"><svg class="i"><use href="#i-filter"/></svg>Filtres</button>
+      <select class="select" id="sort" aria-label="Trier par">
+        <option value="pertinence">Les plus pertinents</option>
+        <option value="populaires">Les plus populaires</option>
+        <option value="notes">Les mieux notés</option>
+        <option value="recents">Les plus récents</option>
+        <option value="prix-asc">Prix croissant</option>
+        <option value="prix-desc">Prix décroissant</option>
+      </select>
+    </div>
+    <div class="active-filters" id="chips"></div>
+
+    <div class="catalog">
+      <div class="results" id="results"></div>
+
+      <!-- Filtre à droite -->
+      <aside class="filters" id="filters">
+        <div class="filters-head">
+          <h3><svg class="i"><use href="#i-filter"/></svg>Filtrer</h3>
+          <div>
+            <button class="link-btn" id="clearAll">Effacer</button>
+            <button class="close-filters" id="closeFilters" aria-label="Fermer"><svg class="i"><use href="#i-x"/></svg></button>
+          </div>
+        </div>
+        <div id="groups"></div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  const FEATURES = { audio: 'Version audio (non-voyants)', soustitres: 'Sous-titres', quiz: 'Quiz', exercices: 'Exercices pratiques', certificat: 'Certificat de réussite' };
+  const DURATIONS = [
+    { id: 'd1', label: '0 à 2 heures', min: 0, max: 2 },
+    { id: 'd2', label: '3 à 6 heures', min: 2.01, max: 6 },
+    { id: 'd3', label: '7 à 17 heures', min: 6.01, max: 17 },
+    { id: 'd4', label: '17 heures et plus', min: 17.01, max: Infinity }
+  ];
+
+  // Définition des groupes du filtre
+  const GROUPS = [
+    { key: 'rating', title: 'Notes', type: 'radio',
+      options: [4.5, 4.0, 3.5, 3.0].map(v => ({ id: String(v), label: `${starsHTML(v)} ${v.toFixed(1).replace('.', ',')} et plus` })),
+      test: (c, v) => c.rating >= +v },
+    { key: 'duration', title: 'Durée de la vidéo', type: 'checkbox',
+      options: DURATIONS.map(d => ({ id: d.id, label: d.label })),
+      test: (c, v) => { const d = DURATIONS.find(x => x.id === v); return c.hours >= d.min && c.hours <= d.max; } },
+    { key: 'cat', title: 'Catégorie', type: 'checkbox', limit: 5,
+      options: CATEGORIES.map(c => ({ id: c.id, label: c.name })),
+      test: (c, v) => c.cat === v },
+    { key: 'level', title: 'Niveau', type: 'checkbox',
+      options: Object.entries(LEVELS).map(([id, label]) => ({ id, label })),
+      test: (c, v) => c.level === v },
+    { key: 'lang', title: 'Langue', type: 'checkbox',
+      options: ['Français', 'Anglais'].map(l => ({ id: l, label: l })),
+      test: (c, v) => c.lang === v },
+    { key: 'price', title: 'Prix', type: 'checkbox',
+      options: [{ id: 'payant', label: 'Payant' }, { id: 'gratuit', label: 'Gratuit' }],
+      test: (c, v) => v === 'gratuit' ? c.price === 0 : c.price > 0 },
+    { key: 'feat', title: 'Fonctionnalités', type: 'checkbox',
+      options: Object.entries(FEATURES).map(([id, label]) => ({ id, label })),
+      test: (c, v) => c.features.includes(v) }
+  ];
+
+  // État des filtres
+  const state = {};
+  GROUPS.forEach(g => state[g.key] = new Set());
+  if (params.get('cat')) state.cat.add(params.get('cat'));
+  if (params.get('audio')) state.feat.add('audio');
+  let query = (params.get('q') || '').trim().toLowerCase();
+  const expanded = new Set();
+
+  // Un cours passe un groupe si aucune option n'est cochée ou s'il correspond à l'une d'elles
+  const passGroup = (c, g) => state[g.key].size === 0 || [...state[g.key]].some(v => g.test(c, v));
+  const passQuery = c => !query || (c.title + ' ' + c.subtitle + ' ' + teacherById(c.teacher).name + ' ' + catById(c.cat).name).toLowerCase().includes(query);
+  const passAll = (c, exceptKey) => passQuery(c) && GROUPS.every(g => g.key === exceptKey || passGroup(c, g));
+
+  function renderGroups() {
+    $('groups').innerHTML = GROUPS.map(g => {
+      const pool = COURSES.filter(c => passAll(c, g.key));
+      const opts = g.limit && !expanded.has(g.key) ? g.options.slice(0, g.limit) : g.options;
+      return `<details class="fgroup" open>
+        <summary>${g.title}<svg class="i"><use href="#i-chevron"/></svg></summary>
+        ${opts.map(o => {
+          const n = pool.filter(c => g.test(c, o.id)).length;
+          const checked = state[g.key].has(o.id);
+          return `<label class="fopt ${n === 0 && !checked ? 'disabled' : ''}">
+            <input type="${g.type}" name="${g.key}" value="${o.id}" ${checked ? 'checked' : ''}>
+            <span>${o.label}</span><span class="n">(${n})</span>
+          </label>`;
+        }).join('')}
+        ${g.limit && g.options.length > g.limit ? `<button class="more-btn" data-more="${g.key}">${expanded.has(g.key) ? 'Afficher moins' : 'Afficher plus'}<svg class="i" style="width:14px;height:14px;${expanded.has(g.key) ? 'transform:rotate(180deg)' : ''}"><use href="#i-chevron"/></svg></button>` : ''}
+      </details>`;
+    }).join('');
+  }
+
+  function sortList(list) {
+    const by = $('sort').value;
+    const date = c => { const [m, y] = c.updated.split('/'); return +y * 12 + +m; };
+    const fns = {
+      pertinence: (a, b) => (b.best - a.best) || (b.rating * Math.log(b.reviews) - a.rating * Math.log(a.reviews)),
+      populaires: (a, b) => b.students - a.students,
+      notes: (a, b) => b.rating - a.rating || b.reviews - a.reviews,
+      recents: (a, b) => date(b) - date(a),
+      'prix-asc': (a, b) => a.price - b.price,
+      'prix-desc': (a, b) => b.price - a.price
+    };
+    return list.sort(fns[by]);
+  }
+
+  function renderResults() {
+    const list = sortList(COURSES.filter(c => passAll(c)));
+    $('count').textContent = `${list.length} résultat${list.length > 1 ? 's' : ''}`;
+    $('results').innerHTML = list.map(c => {
+      const t = teacherById(c.teacher);
+      return `<a class="row-course" href="cours-detail.html?id=${c.id}">
+        <div class="img"><img src="${IMG(c.img)}" alt="" loading="lazy"></div>
+        <div class="info">
+          <h3>${c.title}</h3>
+          <p class="desc">${c.subtitle}</p>
+          <span class="by">${t.name}</span>
+          <span class="rate"><span class="rating-num">${c.rating.toFixed(1).replace('.', ',')}</span>${starsHTML(c.rating)}(${fmtNum(c.reviews)})</span>
+          <span class="meta">${c.hours} heures au total · ${c.lessons} leçons · ${LEVELS[c.level]} · ${c.lang}</span>
+          <span style="display:flex;gap:6px;flex-wrap:wrap">${c.best ? '<span class="badge-best">Meilleure vente</span>' : ''}${c.features.includes('audio') ? `<span class="badge-best">${icon('headphones').replace('class="i"', 'class="i" style="width:11px;height:11px;vertical-align:-1px"')} Version audio</span>` : ''}</span>
+        </div>
+        <div class="side">
+          <span class="price">${fmtPrice(c.price)}${c.old ? `<s>${fmtPrice(c.old)}</s>` : ''}</span>
+          <button class="fav-btn ${Favs.has(c.id) ? 'on' : ''}" data-fav="${c.id}" aria-label="Favori"><svg class="i"><use href="#i-heart"/></svg></button>
+        </div>
+      </a>`;
+    }).join('') || `<div class="empty">
+        <div class="ico"><svg class="i"><use href="#i-search"/></svg></div>
+        <h3>Aucun cours ne correspond</h3>
+        <p>Essayez de retirer quelques filtres ou de modifier votre recherche.</p>
+        <button class="btn btn-primary" onclick="clearAll()">Effacer les filtres</button>
+      </div>`;
+  }
+
+  function renderChips() {
+    const chips = [];
+    if (query) chips.push(`<span class="chip">« ${query} »<button data-chip="q" aria-label="Retirer"><svg class="i"><use href="#i-x"/></svg></button></span>`);
+    GROUPS.forEach(g => state[g.key].forEach(v => {
+      const label = g.key === 'rating' ? `${v.replace('.', ',')} et plus` : g.options.find(o => o.id === v).label;
+      chips.push(`<span class="chip">${label}<button data-chip="${g.key}:${v}" aria-label="Retirer"><svg class="i"><use href="#i-x"/></svg></button></span>`);
+    }));
+    $('chips').innerHTML = chips.join('');
+  }
+
+  function updateHeading() {
+    const tri = params.get('tri');
+    const cats = [...state.cat];
+    let title = 'Tous les cours', sub = 'Explorez notre catalogue et trouvez la formation qui vous correspond.';
+    if (query) { title = `Résultats pour « ${query} »`; sub = 'Les cours qui correspondent à votre recherche.'; }
+    else if (cats.length === 1) { title = catById(cats[0]).name; sub = `Tous nos cours de ${catById(cats[0]).name.toLowerCase()}, du niveau débutant à avancé.`; }
+    else if (tri === 'populaires') { title = 'Cours tendance'; sub = 'Les formations que les apprenants suivent le plus en ce moment.'; }
+    else if (tri === 'recents') { title = 'Nouveaux cours'; sub = 'Les formations publiées ou mises à jour récemment.'; }
+    $('pageTitle').textContent = title;
+    $('crumb').textContent = title;
+    $('pageSub').textContent = sub;
+    document.title = title + ' – Koyeba';
+  }
+
+  function refresh() { renderGroups(); renderResults(); renderChips(); updateHeading(); }
+
+  function clearAll() {
+    GROUPS.forEach(g => state[g.key].clear());
+    query = '';
+    const s = document.querySelector('.top-search input');
+    if (s) s.value = '';
+    refresh();
+  }
+
+  // Événements
+  $('groups').addEventListener('change', e => {
+    const { name, value, type, checked } = e.target;
+    if (type === 'radio') state[name] = new Set([value]);
+    else checked ? state[name].add(value) : state[name].delete(value);
+    refresh();
+  });
+  // Un 2e clic sur une note déjà choisie la désélectionne
+  $('groups').addEventListener('click', e => {
+    const input = e.target.closest('input[type=radio]');
+    if (input && input.dataset.was === '1') { state.rating.clear(); refresh(); return; }
+    const more = e.target.closest('[data-more]');
+    if (more) { e.preventDefault(); const k = more.dataset.more; expanded.has(k) ? expanded.delete(k) : expanded.add(k); renderGroups(); }
+  });
+  $('groups').addEventListener('mousedown', e => {
+    const input = e.target.closest('label')?.querySelector('input[type=radio]');
+    if (input) input.dataset.was = input.checked ? '1' : '0';
+  });
+  $('chips').addEventListener('click', e => {
+    const b = e.target.closest('[data-chip]');
+    if (!b) return;
+    if (b.dataset.chip === 'q') query = '';
+    else { const [k, v] = b.dataset.chip.split(':'); state[k].delete(v); }
+    refresh();
+  });
+  $('clearAll').onclick = clearAll;
+  $('sort').onchange = renderResults;
+  $('openFilters').onclick = () => { $('filters').classList.add('open'); document.querySelector('.overlay').classList.add('show'); };
+  $('closeFilters').onclick = closePanels;
+  document.querySelector('.top-search')?.addEventListener('submit', e => {
+    e.preventDefault();
+    query = e.target.q.value.trim().toLowerCase();
+    refresh();
+  });
+
+  if (['populaires', 'recents'].includes(params.get('tri'))) $('sort').value = params.get('tri');
+  refresh();
+</script>
+</body>
+</html>

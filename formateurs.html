@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formateurs – Koyeba</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css?v=42">
+<script src="assets/auth.js?v=1"></script>
+</head>
+<body data-page="formateurs">
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="topbar" id="topbar"></div>
+
+    <div class="page-head">
+      <div class="crumbs"><a href="index.html">Accueil</a> › Formateurs</div>
+      <h1>Nos formateurs</h1>
+      <p>Des experts passionnés qui partagent leur savoir-faire.</p>
+    </div>
+
+    <div class="toolbar">
+      <span class="count" id="count"></span>
+      <select class="select" id="sort" aria-label="Trier">
+        <option value="followers">Les plus suivis</option>
+        <option value="rating">Les mieux notés</option>
+        <option value="courses">Le plus de cours</option>
+      </select>
+    </div>
+
+    <div class="teacher-grid" id="grid"></div>
+  </main>
+</div>
+
+<script src="assets/data.js?v=42"></script>
+<script src="assets/layout.js?v=35"></script>
+<script>
+  let followed = new Set(['aicha']);
+  try { followed = new Set(JSON.parse(localStorage.getItem('apprendo-follow')) || ['aicha']); } catch {}
+
+  function render() {
+    const by = $('sort').value;
+    const list = [...TEACHERS].sort((a, b) =>
+      by === 'rating' ? b.rating - a.rating : by === 'courses' ? coursesOf(b.id).length - coursesOf(a.id).length : b.followers - a.followers);
+    $('count').textContent = `${list.length} formateurs`;
+    $('grid').innerHTML = list.map(t => {
+      const tc = coursesOf(t.id);
+      const on = followed.has(t.id);
+      return `<div class="tcard" id="${t.id}">
+        <span class="tphoto"><img src="${FACE(t.photo)}" alt="${t.name}">
+          <img class="flag-dot" src="https://flagcdn.com/w40/${t.country[0]}.png" alt="" title="${t.country[1]}"></span>
+        <h3>${t.name}</h3>
+        <span class="flag-badge"><img src="https://flagcdn.com/w40/${t.country[0]}.png" alt="">${t.country[1]}</span>
+        <p class="role">${t.role}</p>
+        <span class="rate" style="font-size:12px;display:flex;gap:5px;align-items:center"><span class="rating-num">${t.rating.toFixed(1).replace('.', ',')}</span>${starsHTML(t.rating)}</span>
+        <div class="tstats">
+          <div><b>${tc.length}</b><small>cours</small></div>
+          <div><b>${fmtNum(Math.round(tc.reduce((s, c) => s + c.students, 0) / 1000))}k</b><small>apprenants</small></div>
+          <div><b>${fmtNum(Math.round(t.followers / 1000))}k</b><small>abonnés</small></div>
+        </div>
+        <div class="row">
+          <button class="follow ${on ? 'on' : ''}" data-t="${t.id}" style="padding:9px">${on ? 'Abonné' : 'Suivre'}</button>
+          <a class="btn btn-ghost btn-sm" href="cours.html?q=${encodeURIComponent(t.name)}">Ses cours</a>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  $('grid').addEventListener('click', e => {
+    const id = e.target.dataset.t;
+    if (!id) return;
+    followed.has(id) ? followed.delete(id) : followed.add(id);
+    try { localStorage.setItem('apprendo-follow', JSON.stringify([...followed])); } catch {}
+    toast(followed.has(id) ? `Vous suivez ${teacherById(id).name}` : `Vous ne suivez plus ${teacherById(id).name}`);
+    render();
+  });
+  $('sort').onchange = render;
+  render();
+
+  // Mise en avant d'un formateur arrivé par un lien (#sarah)
+  if (location.hash) {
+    const el = document.querySelector(location.hash);
+    if (el) { el.scrollIntoView({ block: 'center' }); el.style.boxShadow = '0 0 0 3px var(--green)'; }
+  }
+</script>
+</body>
+</html>
